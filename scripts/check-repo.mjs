@@ -25,7 +25,19 @@ const REQUIRED_FILES = [
   "docs/roadmap.md",
   "package.json",
   "scripts/check-repo.mjs",
+  "scripts/serve.mjs",
+  "src/app/.gitkeep",
+  "src/lib/clock.js",
+  "src/lib/logger.js",
+  "src/lib/platform.js",
+  "src/lib/random.js",
+  "src/ui/.gitkeep",
+  "test/platform.test.mjs",
   "test/repo.test.mjs",
+  "test/server.test.mjs",
+  "web/app.js",
+  "web/index.html",
+  "web/style.css",
 ];
 
 const BASELINE_MARKERS = [
@@ -86,7 +98,7 @@ export function checkRepo(root = ROOT) {
   if (existsSync(pkgPath)) {
     try {
       const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
-      for (const script of ["check", "test"]) {
+      for (const script of ["check", "test", "dev"]) {
         if (!pkg.scripts?.[script]) errors.push(`package.json 缺少 script：${script}`);
       }
     } catch (error) {
