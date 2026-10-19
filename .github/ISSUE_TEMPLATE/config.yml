@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 协作规范
+    url: https://github.com/qianci2/team/blob/main/CONTRIBUTING.md
+    about: 提交前请先阅读分支模型、提交规范与 PR 流程。
+  - name: 阶段计划
+    url: https://github.com/qianci2/team/blob/main/docs/roadmap.md
+    about: 查看 P0–P8 阶段、负责人与验收标准。
