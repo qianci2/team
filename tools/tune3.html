@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>星消乐 — 关卡难度搜索 v3</title>
+<style>
+  body { background:#12151f; color:#e8ecf5; font:12.5px/1.65 Consolas,"Courier New",monospace; margin:0; padding:18px; }
+  h1 { font-size:14px; color:#8fd0ff; margin:0 0 6px; }
+  pre { white-space:pre-wrap; margin:0; }
+</style>
+</head>
+<body>
+<h1>星消乐 — 关卡难度搜索 v3（冰格可交换 / 双层比例下调 / 冰格 ≤15% 棋盘）</h1>
+<pre id="out">运行中…（约需 3~6 分钟）</pre>
+<script src="../game/logic.js"></script>
+<script src="../tests/solver.js"></script>
+<script>
+var out = [];
+function say(s){ out.push(s); document.getElementById('out').textContent = out.join('\n'); }
+var N = 12;
+
+function evaluate(seg2, seg3, from, to, n){
+  n = n || N;
+  var levels = GemzLogic.buildLevels({ seg2: seg2, seg3: seg3 }).slice(from-1, to);
+  var rates = [], cells = [], worst = 1, sum = 0, stars = 0, cnt = 0;
+  var blkScore = 0, blkCollect = 0, blkIce = 0, gc = 0;
+  for (var i=0;i<levels.length;i++){
+    var lv = levels[i], win = 0;
+    for (var k=0;k<n;k++){
+      var r = GemzSolver.solve(lv, 1000 + lv.id*97 + k*13);
+      stars += r.stars; cnt++;
+      if (r.win) win++;
+      else {
+        gc++;
+        lv.goals.forEach(function(g){
+          var cur = g.type==='score' ? r.score : (g.type==='collect' ? (r.collected[g.color]||0) : r.iceCleared);
+          if (cur < g.amount) { if (g.type==='score') blkScore++; else if (g.type==='collect') blkCollect++; else blkIce++; }
+        });
+      }
+    }
+    var rate = win/n;
+    rates.push(rate); sum += rate; if (rate < worst) worst = rate;
+    cells.push('关'+lv.id+':'+(rate*100).toFixed(0)+'%');
+  }
+  return { levels: levels, rates: rates, cells: cells, worst: worst, avg: sum/levels.length,
+           avgStars: stars/cnt, blk: { score: gc?blkScore/gc:0, collect: gc?blkCollect/gc:0, ice: gc?blkIce/gc:0 } };
+}
+function show(tag, r){
+  say('  ' + tag);
+  say('    冰 ' + r.levels.map(function(l){return l.ice;}).join(',') + '  步 ' + r.levels.map(function(l){return l.moves;}).join(',') +
+      '  分 ' + r.levels.map(function(l){return l.targetScore;}).join(','));
+  say('    ' + r.cells.join(' ') + ' → 最低 ' + (r.worst*100).toFixed(0) + '% 平均 ' + (r.avg*100).toFixed(0) + '% 星' + r.avgStars.toFixed(2));
+  say('    失败构成：分数 ' + (r.blk.score*100).toFixed(0) + '% 收集 ' + (r.blk.collect*100).toFixed(0) + '% 冰块 ' + (r.blk.ice*100).toFixed(0) + '%');
+}
+
+say('### A. 第 16~30 关（SEG3）: 冰 8→10, 双0.15, 步 25→18 固定，扫分数/收集');
+var s3c = [
+  { n:'G1 分900+90k 收12+0.7k',  p:{ movesFrom:25, movesTo:18, iceFrom:8, iceTo:10, dbl:0.15, targetFrom:900,  targetStep:90, collectFrom:12, collectStep:0.7 } },
+  { n:'G2 分1000+80k 收12+0.7k', p:{ movesFrom:25, movesTo:18, iceFrom:8, iceTo:10, dbl:0.15, targetFrom:1000, targetStep:80, collectFrom:12, collectStep:0.7 } },
+  { n:'G3 分1100+60k 收12+0.7k', p:{ movesFrom:25, movesTo:18, iceFrom:8, iceTo:10, dbl:0.15, targetFrom:1100, targetStep:60, collectFrom:12, collectStep:0.7 } },
+  { n:'G4 分900+90k 收10+0.8k',  p:{ movesFrom:25, movesTo:18, iceFrom:8, iceTo:10, dbl:0.15, targetFrom:900,  targetStep:90, collectFrom:10, collectStep:0.8 } },
+  { n:'G5 分800+100k 收14+0.6k', p:{ movesFrom:25, movesTo:18, iceFrom:8, iceTo:10, dbl:0.15, targetFrom:800,  targetStep:100, collectFrom:14, collectStep:0.6 } }
+];
+var res = [];
+s3c.forEach(function(cd){ var r = evaluate(null, cd.p, 16, 30); show(cd.n, r); res.push({cd:cd,r:r}); });
+res.sort(function(a,b){ return (b.r.worst-a.r.worst) || (b.r.avg-a.r.avg); });
+var pickS2pre = null;
+var pickS3 = res[0].cd.p;
+say('  【选定 SEG3】' + res[0].cd.n);
+
+say('');
+say('### B. 第 6~15 关（SEG2）: 冰 3→10, 双0, 步 20→16 固定，扫分数/收集（SEG3 已选）');
+var s2c = [
+  { n:'H1 分1300+80k 收10+0.8k',  p:{ movesFrom:20, movesTo:16, iceFrom:3, iceTo:10, dbl:0, targetFrom:1300, targetStep:80, collectFrom:10, collectStep:0.8 } },
+  { n:'H2 分1450+95k 收11+0.8k',  p:{ movesFrom:20, movesTo:16, iceFrom:3, iceTo:10, dbl:0, targetFrom:1450, targetStep:95, collectFrom:11, collectStep:0.8 } },
+  { n:'H3 分1550+110k 收12+0.9k', p:{ movesFrom:20, movesTo:16, iceFrom:3, iceTo:10, dbl:0, targetFrom:1550, targetStep:110, collectFrom:12, collectStep:0.9 } }
+];
+var res2 = [];
+s2c.forEach(function(cd){ var r = evaluate(cd.p, pickS3, 6, 15); show(cd.n, r); res2.push({cd:cd,r:r}); });
+res2.sort(function(a,b){ return (b.r.worst-a.r.worst) || (b.r.avg-a.r.avg); });
+var pickS2 = res2[0].cd.p;
+say('  【选定 SEG2】' + res2[0].cd.n);
+
+say('');
+say('### C. 最终验证：全 30 关，每关 25 次');
+var all = GemzLogic.buildLevels({ seg2: pickS2, seg3: pickS3 });
+var r3 = evaluate(pickS2, pickS3, 1, 30, 25);
+var line = [];
+r3.rates.forEach(function(v,i){ line.push((v*100).toFixed(0)+'%'); if (line.length===10){ say('    关'+(i-8)+'-关'+(i+1)+': '+line.join(' ')); line=[]; } });
+say('    → 最低 ' + (r3.worst*100).toFixed(0) + '%  平均 ' + (r3.avg*100).toFixed(1) + '%  平均星 ' + r3.avgStars.toFixed(2) +
+    (r3.worst>=0.6 ? '  【满足 BR-4】' : '  【不满足 BR-4】'));
+say('');
+say('### D. 写回 game/logic.js');
+say('const SEG2 = ' + JSON.stringify(pickS2) + ';');
+say('const SEG3 = ' + JSON.stringify(pickS3) + ';');
+document.title = 'TUNE3 DONE';
+</script>
+</body>
+</html>

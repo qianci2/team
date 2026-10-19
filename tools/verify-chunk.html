@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>星消乐 — 逐关验证（分块并行）</title>
+<style>
+  body { background:#12151f; color:#e8ecf5; font:12px/1.5 Consolas,"Courier New",monospace; margin:0; padding:12px; }
+  pre { white-space:pre-wrap; margin:0; }
+</style>
+</head>
+<body>
+<pre id="out">运行中…</pre>
+<script src="../game/logic.js"></script>
+<script src="../tests/solver.js"></script>
+<script>
+/* 用法：verify-chunk.html#from=1&to=10&N=200 —— 分块并行，避免单次运行过久 */
+var params = {};
+location.hash.replace(/^#/, '').split('&').forEach(function (kv) { var p = kv.split('='); if (p[0]) params[p[0]] = p[1]; });
+var FROM = parseInt(params.from || '1', 10), TO = parseInt(params.to || '30', 10), N = parseInt(params.N || '200', 10);
+var out = [];
+function say(s) { out.push(s); document.getElementById('out').textContent = out.join('\n'); }
+var L = GemzLogic;
+
+function buildLevels() {
+  var ls = [];
+  for (var n = 1; n <= 30; n++) {
+    var moves, target, ice = 0, dbl = 0, goals = [], color, seg, collect = 0;
+    if (n <= 5) { seg = 1; moves = 20 - (n - 1); target = 1200 + 80 * (n - 1); goals.push({ type: 'score', amount: target }); }
+    else if (n <= 15) {
+      seg = 2; var k = n - 6; moves = 20 - Math.floor(k / 2); target = 1750 - 20 * k;
+      ice = 4 + Math.floor(k / 2); collect = 10 + k; color = k % 5;
+      goals.push({ type: 'score', amount: target });
+      goals.push({ type: 'collect', color: color, amount: collect });
+    } else {
+      seg = 3; var k2 = n - 16; moves = 25 - Math.floor(k2 / 3); target = 1900 + 30 * k2;
+      ice = 5 + Math.floor(k2 / 5); collect = 11 + Math.floor(0.6 * k2); dbl = 0.15; color = k2 % 5;
+      goals.push({ type: 'score', amount: target });
+      goals.push({ type: 'collect', color: color, amount: collect });
+      goals.push({ type: 'ice', amount: ice });
+    }
+    ls.push({ id: n, moves: moves, targetScore: target, ice: ice, doubleRatio: dbl, goals: goals, _seg: seg, _collect: collect, keep2: 1, keep3: 2 });
+  }
+  return ls;
+}
+function q(a, p) { return a.length ? a[Math.min(a.length - 1, Math.floor(a.length * p))] : 0; }
+function wilson(k, n) { var p = k / n, z = 1.96, d = 1 + z * z / n, c = p + z * z / (2 * n), h = z * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)); return [(c - h) / d, (c + h) / d]; }
+
+var levels = buildLevels();
+var rows = [];
+for (var i = FROM - 1; i < TO; i++) {
+  var lv = levels[i];
+  var win = 0, scores = [], lefts = [], fC = 0, fI = 0, fS = 0;
+  for (var t = 0; t < N; t++) {
+    var r = GemzSolver.solve(lv, 90000 + lv.id * 7919 + t * 104729);   // 两阶段求解器（与交付的 tests/solver.js 同一实现）
+    var cOk = lv.goals.filter(function (g) { return g.type === 'collect'; }).every(function (g) { return (r.collected[g.color] || 0) >= g.amount; });
+    var iOk = lv.goals.filter(function (g) { return g.type === 'ice'; }).every(function (g) { return r.iceCleared >= g.amount; });
+    var sOk = r.score >= lv.goals[0].amount;
+    if (r.win) { win++; scores.push(r.score); lefts.push(r.movesLeft); }
+    else { if (!cOk) fC++; if (!iOk) fI++; if (!sOk) fS++; }
+  }
+  scores.sort(function (a, b) { return a - b; });
+  lefts.sort(function (a, b) { return a - b; });
+  var ci = wilson(win, N);
+  var k2 = q(lefts, 0.35), k3 = q(lefts, 0.70);
+  var s1 = 0, s2 = 0, s3 = 0;
+  lefts.forEach(function (r) { if (r >= k3) s3++; else if (r >= k2) s2++; else s1++; });
+  rows.push({ lv: lv, rate: win / N, ci: ci, k2: k2, k3: k3, s1: s1, s2: s2, s3: s3, n: win, p99: q(scores, 0.99) });
+  say(String(lv.id).padStart(2) + ' 段' + lv._seg + ' 步' + String(lv.moves).padStart(2) + ' T' + String(lv.targetScore).padStart(4) +
+      ' 收' + String(lv._collect || 0).padStart(4) + ' 冰' + String(lv.ice).padStart(2) + ' | ' +
+      (win / N * 100).toFixed(1).padStart(5) + '% [' + (ci[0] * 100).toFixed(1) + '~' + (ci[1] * 100).toFixed(1) + '] | ' +
+      'p50/p90/p99=' + String(q(scores, 0.5)).padStart(5) + '/' + String(q(scores, 0.9)).padStart(5) + '/' + String(q(scores, 0.99)).padStart(5) + ' | ' +
+      'keep2/3=' + k2 + '/' + k3 + ' | 星 ' + (s1 / Math.max(1, win) * 100).toFixed(0) + '/' + (s2 / Math.max(1, win) * 100).toFixed(0) + '/' + (s3 / Math.max(1, win) * 100).toFixed(0) +
+      ' | 失败 收' + fC + ' 冰' + fI + ' 分' + fS);
+}
+var avg = rows.reduce(function (x, y) { return x + y.rate; }, 0) / rows.length;
+say('');
+say('块 ' + FROM + '-' + TO + ' 平均通过率 ' + (avg * 100).toFixed(1) + '%  最低 ' + (Math.min.apply(null, rows.map(function (r) { return r.rate; })) * 100).toFixed(1) + '%');
+say('keep 参考：' + rows.map(function (r) { return r.lv.id + ':' + r.k2 + '/' + r.k3; }).join('  '));
+say('US 参考：' + rows.map(function (r) { return r.lv.id + ':' + Math.ceil(1.5 * (r.p99 || 0)); }).join('  '));
+var T1 = 0, T2 = 0, T3 = 0, TN = 0;
+rows.forEach(function (r) { T1 += r.s1; T2 += r.s2; T3 += r.s3; TN += r.n; });
+say('块内星级分布 1★/2★/3★ = ' + (T1 / TN * 100).toFixed(1) + '/' + (T2 / TN * 100).toFixed(1) + '/' + (T3 / TN * 100).toFixed(1) + '%（共 ' + TN + ' 通关样本）');
+document.title = 'CHUNK ' + FROM + '-' + TO + ' DONE';
+</script>
+</body>
+</html>

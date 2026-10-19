@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>星消乐 — 截图夹具</title>
+<style>
+  html,body { margin:0; height:100%; background:#0d1020; overflow:hidden; }
+  iframe { width:1280px; height:720px; border:0; display:block; }
+</style>
+</head>
+<body>
+<!-- 用途：把游戏放进固定尺寸的 iframe，按 URL hash 指定初始状态，便于无头浏览器 --screenshot 出图。
+     例：shot.html#level=2   shot.html#level=16&cb=1   shot.html#home -->
+<iframe id="frame" src="../game/index.html"></iframe>
+<script>
+var hash = location.hash.replace(/^#/, '');
+var params = {};
+hash.split('&').forEach(function (kv) { var p = kv.split('='); if (p[0]) params[p[0]] = p[1] === undefined ? '1' : p[1]; });
+var frame = document.getElementById('frame');
+var waited = 0;
+function apply() {
+  var W = frame.contentWindow;
+  if (!W || !W.GEMZ || !W.GEMZ.state && params.level) {
+    if (++waited > 300) { document.title = 'SHOT TIMEOUT'; return; }
+    return setTimeout(apply, 30);
+  }
+  var GZ = W.GEMZ;
+  try {
+    if (params.cb) GZ.save.colorblind = true;      // 色盲模式（保存于 save，精灵键会随之变化）
+    if (params.home) { GZ.screen('screen-home'); }
+    else if (params.map) { GZ.screen('screen-levels'); }
+    else {
+      var lv = parseInt(params.level || '1', 10);
+      if (params.stars) {                            // 造一些星级与金币用于截图
+        for (var i = 1; i <= 8; i++) GZ.save.stars[i] = (i % 3) + 1;
+        GZ.save.unlockedLevel = 9; GZ.save.coins = 860;
+        GZ.save.bestScores[1] = 2090; GZ.save.bestScores[2] = 1740;
+      }
+      GZ.startLevel(lv);
+      if (params.cb) {                               // 触发一次重绘，让色盲精灵生效
+        var st = GZ.state();
+        for (var r = 0; r < 8 && st; r++) for (var c = 0; c < 7; c++) {
+          var a = GZ.logic.idx(r, c), b = GZ.logic.idx(r, c + 1);
+          if (GZ.logic.canSwap(st.cells, st.ice, a, b)) { GZ.swap(a, b); r = 9; break; }
+        }
+      }
+      if (params.win) {                              // 通关结算弹窗
+        var s2 = GZ.state();
+        s2.score = s2.level.stars[2] + 60; s2.movesLeft = 6;   // 越过 3★ 线，且留 6 步拿剩余步数奖励
+        var done = false;
+        for (var r2 = 0; r2 < 8 && !done; r2++) for (var c2 = 0; c2 < 7 && !done; c2++) {
+          var a2 = GZ.logic.idx(r2, c2), b2 = GZ.logic.idx(r2, c2 + 1);
+          if (!GZ.logic.canSwap(s2.cells, s2.ice, a2, b2)) continue;
+          var probe = s2.cells.slice(); GZ.logic.swapCells(probe, a2, b2);
+          if (GZ.logic.findGroups(probe).length) { GZ.swap(a2, b2); done = true; }
+        }
+      }
+      if (params.forcewin) {                         // 直接凑满全部目标，再走一手触发结算（用于截取结算弹窗）
+        var s4 = GZ.state(), L4 = GZ.logic;
+        s4.level.goals.forEach(function (g) {
+          if (g.type === 'collect') s4.collected[g.color] = g.amount;
+          if (g.type === 'ice') s4.iceCleared = g.amount;
+        });
+        s4.score = s4.level.targetScore + 60;        // 凑满目标
+        s4.movesLeft = s4.level.keep3 + 1;           // 结算时剩余 = keep3 → 3★
+        var done4 = false;
+        for (var r4 = 0; r4 < 8 && !done4; r4++) for (var c4 = 0; c4 < 7 && !done4; c4++) {
+          var a4 = L4.idx(r4, c4), b4 = L4.idx(r4, c4 + 1);
+          if (!L4.canSwap(s4.cells, s4.ice, a4, b4)) continue;
+          var pr4 = s4.cells.slice(); L4.swapCells(pr4, a4, b4);
+          if (L4.findGroups(pr4).length) { GZ.swap(a4, b4); done4 = true; }
+        }
+      }
+      if (params.swapdemo) {                         // 用真实指针事件点击两个相邻元素完成交换
+        var s3 = GZ.state(), L3 = GZ.logic, pair = null;
+        for (var r3 = 0; r3 < 8 && !pair; r3++) for (var c3 = 0; c3 < 7 && !pair; c3++) {
+          var a3 = L3.idx(r3, c3), b3 = L3.idx(r3, c3 + 1);
+          if (!L3.canSwap(s3.cells, s3.ice, a3, b3)) continue;
+          var pr = s3.cells.slice(); L3.swapCells(pr, a3, b3);
+          if (L3.findGroups(pr).length) pair = [a3, b3];
+        }
+        if (!pair) { document.title = 'SHOT ERROR 未找到合法交换'; return; }
+        var rect = W.document.getElementById('board').getBoundingClientRect();
+        var cell = rect.width / 8;
+        var px = function (i) { return rect.left + (L3.colOf(i) + 0.5) * cell; };
+        var py = function (i) { return rect.top + (L3.rowOf(i) + 0.5) * cell; };
+        var fire = function (type, x, y) {
+          W.document.getElementById('board').dispatchEvent(new W.PointerEvent(type, {
+            clientX: x, clientY: y, bubbles: true, cancelable: true,
+            pointerId: 1, pointerType: 'mouse', isPrimary: true, button: 0,
+            buttons: type === 'pointerup' ? 0 : 1
+          }));
+        };
+        fire('pointerdown', px(pair[0]), py(pair[0])); fire('pointerup', px(pair[0]), py(pair[0]));
+        fire('pointerdown', px(pair[1]), py(pair[1])); fire('pointerup', px(pair[1]), py(pair[1]));
+      }
+    }
+  } catch (e) { document.title = 'SHOT ERROR ' + e.message; return; }
+  document.title = 'SHOT READY';
+}
+apply();
+</script>
+</body>
+</html>

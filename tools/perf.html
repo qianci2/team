@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>星消乐 — 性能测量</title>
+<style>
+  body { background:#12151f; color:#e8ecf5; font:12.5px/1.6 Consolas,"Courier New",monospace; margin:0; padding:16px; }
+  h1 { font-size:14px; color:#8fd0ff; margin:0 0 8px; }
+  pre { white-space:pre-wrap; margin:0; }
+  iframe { width:700px; height:560px; border:1px solid #333c66; border-radius:10px; background:#0d1020; float:right; }
+</style>
+</head>
+<body>
+<h1>星消乐 — 性能测量（iframe 内真实驱动 game/index.html）</h1>
+<pre id="out">运行中…</pre>
+<iframe id="frame" src="../game/index.html"></iframe>
+<script>
+var out = [];
+function say(s) { out.push(s); document.getElementById('out').textContent = out.join('\n'); }
+function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+async function until(fn, ms, label) {
+  var t0 = Date.now();
+  while (Date.now() - t0 < (ms || 10000)) { if (fn()) return true; await sleep(40); }
+  throw new Error('等待超时：' + (label || ''));
+}
+
+var frame = document.getElementById('frame');
+var W = null, GZ = null, L = null;
+
+/** 统计帧间隔与 rAF 回调耗时 */
+function makeProbe(w) {
+  var s = { frames: [], rafTime: 0, rafCount: 0, running: false, last: 0 };
+  var origRAF = w.requestAnimationFrame;
+  w.requestAnimationFrame = function (cb) {
+    return origRAF.call(w, function (t) {
+      var t0 = w.performance.now();
+      s.rafCount++;
+      var r = cb(t);
+      s.rafTime += w.performance.now() - t0;
+      if (s.running) {
+        if (s.last) s.frames.push(t - s.last);
+        s.last = t;
+      }
+      return r;
+    });
+  };
+  s.start = function () { s.frames = []; s.rafTime = 0; s.rafCount = 0; s.last = 0; s.running = true; };
+  s.stop = function () {
+    s.running = false;
+    var f = s.frames.slice(1).sort(function (a, b) { return a - b; });
+    if (!f.length) return { n: 0 };
+    var sum = f.reduce(function (a, b) { return a + b; }, 0);
+    return {
+      n: f.length,
+      avgMs: sum / f.length,
+      p50: f[Math.floor(f.length * 0.5)],
+      p95: f[Math.floor(f.length * 0.95)],
+      max: f[f.length - 1],
+      fps: 1000 / (sum / f.length),
+      rafCallbacksPerSec: s.rafCount / (sum * f.length / 1000),
+      rafCpuMsPerFrame: s.rafTime / Math.max(1, s.rafCount)
+    };
+  };
+  return s;
+}
+
+function fmt(name, r) {
+  if (!r || !r.n) return name + ': 无样本';
+  return name + ': 平均 ' + r.avgMs.toFixed(1) + 'ms (p50 ' + r.p50.toFixed(1) + ' / p95 ' + r.p95.toFixed(1) +
+         ' / max ' + r.max.toFixed(1) + ')  ≈ ' + r.fps.toFixed(1) + ' FPS；每帧 rAF 回调 ' +
+         r.rafCallbacksPerSec.toFixed(1) + ' 次，回调内耗时 ' + r.rafCpuMsPerFrame.toFixed(2) + 'ms';
+}
+function findValidSwap(gz) {
+  var L = gz.logic, st = gz.state(), cells = st.cells;
+  for (var r = 0; r < 8; r++) for (var c = 0; c < 8; c++) {
+    for (var d = 0; d < 2; d++) {
+      var rr = r + (d ? 1 : 0), cc = c + (d ? 0 : 1);
+      if (rr > 7 || cc > 7) continue;
+      var a = L.idx(r, c), b = L.idx(rr, cc);
+      if (!L.canSwap(cells, st.ice, a, b)) continue;
+      var probe = cells.slice();
+      L.swapCells(probe, a, b);
+      if (L.findGroups(probe).length) return [a, b];
+    }
+  }
+  return null;
+}
+
+(async function () {
+  await until(function () { return frame.contentWindow && frame.contentWindow.GEMZ; }, 10000, 'GEMZ 就绪');
+  W = frame.contentWindow; GZ = W.GEMZ; L = GZ.logic;
+  var probe = makeProbe(W);
+
+  // 统计 localStorage 写入次数
+  var writes = 0, writesKeys = {};
+  var SP = W.Storage.prototype, origSet = SP.setItem;
+  SP.setItem = function (k, v) { writes++; writesKeys[k] = (writesKeys[k] || 0) + 1; return origSet.call(this, k, v); };
+
+  say('环境：' + W.navigator.userAgent.replace(/^.*(Edge|Chrome)\/([\d.]+).*$/, '$1/$2') +
+      '  视口 ' + W.innerWidth + '×' + W.innerHeight + '  DPR ' + W.devicePixelRatio +
+      '  棋盘 ' + (W.document.getElementById('board').getBoundingClientRect().width | 0) + 'px');
+  say('');
+
+  // A. 首页静止
+  GZ.screen('screen-home');
+  await sleep(300);
+  probe.start(); await sleep(2500); var A = probe.stop();
+  say(fmt('A 首页静止     ', A));
+
+  // B. 对局中静止（棋盘持续重绘）
+  GZ.startLevel(1);
+  await until(function () { return GZ.state() && !GZ.state().busy; }, 8000, '开局');
+  await sleep(400);
+  probe.start(); await sleep(2500); var B = probe.stop();
+  say(fmt('B 对局静止     ', B));
+
+  // C. 一手的响应延迟（从发起到 busy 解除）与动画期间帧率
+  var lat = [];
+  for (var i = 0; i < 6; i++) {
+    await until(function () { return !GZ.state().busy; }, 8000, '空闲');
+    var mv = findValidSwap(GZ);
+    if (!mv) break;
+    probe.start();
+    var t0 = W.performance.now();
+    GZ.swap(mv[0], mv[1]);
+    await until(function () { return !GZ.state().busy; }, 8000, '结算');
+    lat.push(W.performance.now() - t0);
+    var C = probe.stop();
+    if (i === 0) say(fmt('C 动画期间     ', C));
+  }
+  lat.sort(function (a, b) { return a - b; });
+  say('D 一手操作锁定时间：平均 ' + (lat.reduce(function (a, b) { return a + b; }, 0) / lat.length).toFixed(0) +
+      'ms（最短 ' + lat[0].toFixed(0) + ' / 最长 ' + lat[lat.length - 1].toFixed(0) + 'ms）← 这段时间内无法操作');
+
+  // E. localStorage 写入频率
+  writes = 0;
+  GZ.screen('screen-home');
+  await sleep(10000);
+  say('E localStorage 写入：10 秒内 ' + writes + ' 次  ' + JSON.stringify(writesKeys));
+  say('');
+  say('（对照：静止时理想情况应为 ~0 次；每帧理想为 1 次 rAF 回调）');
+  document.title = 'PERF DONE';
+})().catch(function (e) { say('测量失败：' + e.message); document.title = 'PERF ERROR'; });
+</script>
+</body>
+</html>

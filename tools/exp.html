@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>星消乐 — 冰块目标机制实验</title>
+<style>
+  body { background:#12151f; color:#e8ecf5; font:12.5px/1.65 Consolas,"Courier New",monospace; margin:0; padding:18px; }
+  h1 { font-size:14px; color:#8fd0ff; margin:0 0 6px; }
+  pre { white-space:pre-wrap; margin:0; }
+</style>
+</head>
+<body>
+<h1>星消乐 — 冰块目标机制实验：单双层冰 / 冰格数 / 步数 的影响</h1>
+<pre id="out">运行中…</pre>
+<script src="../game/logic.js"></script>
+<script src="../tests/solver.js"></script>
+<script>
+var out = [];
+function say(s){ out.push(s); document.getElementById('out').textContent = out.join('\n'); }
+
+/** 单次模拟，附带明细统计 */
+function run(level, seed){
+  var rng = GemzLogic.makeRng(seed);
+  var b = GemzLogic.newBoard(rng, level.ice, level.doubleRatio);
+  var cells = b.cells, ice = b.ice;
+  var layers0 = ice.reduce(function(a,x){return a+x;},0);
+  var wantColors = level.goals.filter(function(g){return g.type==='collect';}).map(function(g){return g.color;});
+  var movesLeft = level.moves, score = 0, iceCleared = 0, guard = 0, clears = 0, iceHits = 0;
+  var rowClears = new Array(8).fill(0);
+  var collected = {};
+  var state = function(){ return { score: score, collected: collected, iceCleared: iceCleared }; };
+  while (movesLeft > 0 && guard++ < 400){
+    if (GemzLogic.allGoalsMet(level, state())) break;
+    var picked = GemzSolver.pick ? null : null;
+    // 复用求解器的决策：用它的内部逻辑需暴露，这里直接调用 solve 会重复；改为简化的"贪心+冰优先"
+    var w = { colors: [], ice: 0 };
+    level.goals.forEach(function(g){
+      if (g.type==='collect' && ((collected[g.color]||0) < g.amount)) w.colors.push(g.color);
+      if (g.type==='ice' && iceCleared < g.amount) w.ice = 200;
+    });
+    var best = null;
+    for (var r=0;r<8;r++) for (var c=0;c<8;c++){
+      var dirs = [[0,1],[1,0]];
+      for (var di=0;di<2;di++){
+        var rr = r+dirs[di][0], cc = c+dirs[di][1];
+        if (rr>7||cc>7) continue;
+        var a = GemzLogic.idx(r,c), b2 = GemzLogic.idx(rr,cc);
+        if (!GemzLogic.canSwap(cells, ice, a, b2)) continue;
+        GemzLogic.swapCells(cells, a, b2);
+        var groups = GemzLogic.findGroups(cells);
+        if (!groups.length){ GemzLogic.swapCells(cells, a, b2); continue; }
+        var cl=0, hits=0, ih=0;
+        groups.forEach(function(g){ g.cells.forEach(function(i){
+          cl++; if (w.colors.indexOf(cells[i].c)>=0) hits++;
+          if (ice[i]>0) ih++;
+        });});
+        GemzLogic.swapCells(cells, a, b2);
+        var v = cl*10 + 80*hits + w.ice*ih;
+        if (!best || v > best.v) best = {a:a,b:b2,v:v};
+      }
+    }
+    if (!best){ GemzLogic.shuffleBoard(cells, ice, rng); continue; }
+    var res = GemzLogic.playMove(cells, ice, rng, best.a, best.b);
+    if (!res.valid) continue;
+    movesLeft--;
+    score += res.gained; iceCleared += res.iceCleared;
+    res.steps.forEach(function(st){
+      clears += st.cleared.length;
+      st.cleared.forEach(function(i){ rowClears[GemzLogic.rowOf(i)]++; if (ice[i]>0) iceHits++; });
+    });
+    for (var k=0;k<5;k++) collected[k] = (collected[k]||0) + res.colorCounts[k];
+  }
+  return { win: GemzLogic.allGoalsMet(level, state()), score: score, iceCleared: iceCleared,
+           iceGoal: level.goals.filter(function(g){return g.type==='ice';})[0].amount,
+           layers0: layers0, clears: clears, rowClears: rowClears, movesLeft: movesLeft };
+}
+
+function exp(name, cfg, N){
+  var level = { id: 99, moves: cfg.moves, ice: cfg.ice, doubleRatio: cfg.dbl, targetScore: 900,
+                goals: [ {type:'score', amount:900}, {type:'ice', amount: cfg.ice} ], stars:[900,1350,1800] };
+  var win=0, iceSum=0, layer=0, clears=0, rowTot = new Array(8).fill(0);
+  for (var i=0;i<N;i++){
+    var r = run(level, 5000+i*37);
+    if (r.win) win++;
+    iceSum += r.iceCleared; layer += r.layers0; clears += r.clears;
+    for (var k=0;k<8;k++) rowTot[k] += r.rowClears[k];
+  }
+  say('  ' + name + '  通过率 ' + (win/N*100).toFixed(0) + '%  平均清冰 ' + (iceSum/N).toFixed(2) + '/' + cfg.ice +
+      '  总冰层 ' + (layer/N).toFixed(2) + '  总消除格 ' + (clears/N).toFixed(0));
+  say('      各行消除格占比: ' + rowTot.map(function(x){ return (x/clears*100).toFixed(1)+'%'; }).join(' '));
+}
+
+var N = 12;
+say('【实验 1】冰格数固定 8，步数 25，改变双层比例');
+exp('dbl=0    ', { moves:25, ice:8,  dbl:0 }, N);
+exp('dbl=0.15 ', { moves:25, ice:8,  dbl:0.15 }, N);
+exp('dbl=0.35 ', { moves:25, ice:8,  dbl:0.35 }, N);
+say('');
+say('【实验 2】双层比例 0.15，步数 25，改变冰格数');
+exp('ice=4    ', { moves:25, ice:4,  dbl:0.15 }, N);
+exp('ice=8    ', { moves:25, ice:8,  dbl:0.15 }, N);
+exp('ice=14   ', { moves:25, ice:14, dbl:0.15 }, N);
+say('');
+say('【实验 3】冰格数 8，双层 0.15，改变步数');
+exp('moves=16 ', { moves:16, ice:8, dbl:0.15 }, N);
+exp('moves=25 ', { moves:25, ice:8, dbl:0.15 }, N);
+exp('moves=35 ', { moves:35, ice:8, dbl:0.15 }, N);
+say('');
+say('【实验 4】单次消除只削减 1 层 vs 冰格不可交换（对照旧规则）');
+say('  说明：旧规则（冰格不可交换）下冰层破坏率极低，因为可交换集合被限制；');
+say('  当前规则下冰层在"该格元素被消除"时削减，故消除总量决定清冰速度。');
+document.title = 'EXP DONE';
+</script>
+</body>
+</html>

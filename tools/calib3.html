@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>星消乐 — 剩余步数阈值标定</title>
+<style>
+  body { background:#12151f; color:#e8ecf5; font:12.5px/1.6 Consolas,"Courier New",monospace; margin:0; padding:16px; }
+  h1 { font-size:14px; color:#8fd0ff; margin:0 0 8px; }
+  pre { white-space:pre-wrap; margin:0; }
+</style>
+</head>
+<body>
+<h1>星消乐 — 剩余步数阈值标定（星级 = 完成时剩余步数）</h1>
+<pre id="out">运行中…（约 1 分钟）</pre>
+<script src="../game/logic.js"></script>
+<script src="../tests/solver.js"></script>
+<script>
+var out = [];
+function say(s) { out.push(s); document.getElementById('out').textContent = out.join('\n'); }
+var N = 60;
+var levels = GemzLogic.buildLevels();
+
+say('规则：达成全部目标立即结算，星级按"完成时剩余步数"评定。');
+say('目标分布：3★ ≈ 30%、2★ ≈ 35%、1★ ≈ 35%（以普通玩家代理为基准；真人会更早完成，星级更高）。');
+say('阈值取法：keep3 = 剩余步数的 p70（约 30% 的局能达到），keep2 = p35（约 65% 能达到）。');
+say('');
+say('关  步数 | 剩余步数 最小/p35/中位/p70/最大 | 建议 keep2 / keep3 | 当前 1★/2★/3★');
+var data = [];
+for (var i = 0; i < levels.length; i++) {
+  var lv = levels[i], rs = [], hist = [0, 0, 0, 0], wins = 0;
+  for (var k = 0; k < N; k++) {
+    var r = GemzSolver.solve(lv, 1000 + lv.id * 97 + k * 13);
+    if (r.win) { wins++; rs.push(r.movesLeft); hist[r.stars]++; }
+  }
+  rs.sort(function (a, b) { return a - b; });
+  var q = function (p) { return rs.length ? rs[Math.min(rs.length - 1, Math.floor(rs.length * p))] : 0; };
+  var mn = rs[0], p35 = q(0.35), p50 = q(0.5), p70 = q(0.7), mx = rs[rs.length - 1];
+  data.push({ id: lv.id, moves: lv.moves, k2: p35, k3: p70, rate: wins / N, rs: rs });
+  say('第' + String(lv.id).padStart(2) + ' ' + String(lv.moves).padStart(3) + '  | ' +
+      String(mn).padStart(3) + '/' + String(p35).padStart(3) + '/' + String(p50).padStart(3) + '/' +
+      String(p70).padStart(3) + '/' + String(mx).padStart(3) + ' | ' +
+      String(p35).padStart(4) + ' / ' + String(p70).padStart(4) + ' | ' +
+      (hist[1] / N * 100).toFixed(0).padStart(3) + '%/' + (hist[2] / N * 100).toFixed(0).padStart(3) + '%/' + (hist[3] / N * 100).toFixed(0).padStart(3) + '%');
+}
+say('');
+say('=== 分段最小二乘拟合（阈值随关卡线性变化）===');
+var segs = [[1, 5, '关 1-5  '], [6, 15, '关 6-15 '], [16, 30, '关 16-30']];
+var fitres = {};
+segs.forEach(function (sg) {
+  ['k2', 'k3'].forEach(function (key) {
+    var n = sg[1] - sg[0] + 1, sx = 0, sy = 0, sxx = 0, sxy = 0;
+    for (var j = sg[0]; j <= sg[1]; j++) { var kk = j - sg[0], y = data[j - 1][key]; sx += kk; sy += y; sxx += kk * kk; sxy += kk * y; }
+    var b = (n * sxy - sx * sy) / (n * sxx - sx * sx), a = (sy - b * sx) / n;
+    fitres[sg[0] + key] = { a: a, b: b };
+    say('  ' + sg[2] + ' ' + key + ' ≈ ' + a.toFixed(1) + ' + ' + b.toFixed(1) + '×k  → 第' + sg[0] + '关 ' +
+        Math.round(a) + ' / 第' + sg[1] + '关 ' + Math.round(a + b * (sg[1] - sg[0])));
+  });
+});
+say('');
+say('=== 用拟合阈值复核星级分布 ===');
+var hist = [0, 0, 0, 0], tot = 0;
+segs.forEach(function (sg) {
+  for (var j = sg[0]; j <= sg[1]; j++) {
+    var kk = j - sg[0];
+    var k2 = Math.max(1, Math.round(fitres[sg[0] + 'k2'].a + fitres[sg[0] + 'k2'].b * kk));
+    var k3 = Math.max(k2 + 1, Math.round(fitres[sg[0] + 'k3'].a + fitres[sg[0] + 'k3'].b * kk));
+    data[j - 1].rs.forEach(function (r) {
+      tot++;
+      if (r >= k3) hist[3]++; else if (r >= k2) hist[2]++; else hist[1]++;
+    });
+  }
+});
+say('  1★ ' + (hist[1] / tot * 100).toFixed(0) + '% / 2★ ' + (hist[2] / tot * 100).toFixed(0) + '% / 3★ ' + (hist[3] / tot * 100).toFixed(0) +
+    '%   平均 ' + ((hist[1] + hist[2] * 2 + hist[3] * 3) / tot).toFixed(2) + ' 星（共 ' + tot + ' 个通关样本）');
+say('');
+say('=== 建议写回 logic.js ===');
+segs.forEach(function (sg) {
+  say('  ' + sg[2] + ' keep2From: ' + Math.round(fitres[sg[0] + 'k2'].a) + ', keep2Step: ' + fitres[sg[0] + 'k2'].b.toFixed(1) +
+      ', keep3From: ' + Math.round(fitres[sg[0] + 'k3'].a) + ', keep3Step: ' + fitres[sg[0] + 'k3'].b.toFixed(1));
+});
+document.title = 'CALIB3 DONE';
+</script>
+</body>
+</html>

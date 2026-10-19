@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>星消乐 — 目标分标定（不受分数线影响的可得分布）</title>
+<style>
+  body { background:#12151f; color:#e8ecf5; font:12px/1.5 Consolas,"Courier New",monospace; margin:0; padding:14px; }
+  h1 { font-size:13px; color:#8fd0ff; margin:0 0 6px; }
+  pre { white-space:pre-wrap; margin:0; }
+</style>
+</head>
+<body>
+<h1>星消乐 — 目标分标定：把分数线置为无穷大，测"可得得分 / 剩余步数"分布</h1>
+<pre id="out">运行中…（约 3~5 分钟）</pre>
+<script src="../game/logic.js"></script>
+<script src="../tests/solver.js"></script>
+<script>
+var out = [];
+function say(s) { out.push(s); document.getElementById('out').textContent = out.join('\n'); }
+var N = 200;
+var L = GemzLogic;
+
+/* 按《01》BR-02~BR-04 的公式构关；分数线置为极大值以测"不受分数线影响"的分布 */
+function buildLevels(neutralScoreGoal) {
+  var ls = [];
+  for (var n = 1; n <= 30; n++) {
+    var moves, target, ice = 0, dbl = 0, goals = [], color, seg;
+    if (n <= 5) { seg = 1; moves = 20 - (n - 1); target = 1000 + 300 * (n - 1); goals.push({ type: 'score', amount: target }); }
+    else if (n <= 15) {
+      seg = 2; var k = n - 6;
+      moves = 20 - Math.floor(k / 2); target = 1400 + 100 * k; ice = 4 + Math.floor(k / 2); color = k % 5;
+      goals.push({ type: 'score', amount: target });
+      goals.push({ type: 'collect', color: color, amount: 10 + k });
+    } else {
+      seg = 3; var k2 = n - 16;
+      moves = 25 - Math.floor(k2 / 3); target = 1900 + 60 * k2; ice = 7 + Math.floor(k2 / 5); dbl = 0.15; color = k2 % 5;
+      goals.push({ type: 'score', amount: target });
+      goals.push({ type: 'collect', color: color, amount: 14 + k2 });
+      goals.push({ type: 'ice', amount: ice });
+    }
+    if (neutralScoreGoal) goals[0].amount = 9e9;
+    ls.push({ id: n, moves: moves, targetScore: target, ice: ice, doubleRatio: dbl, goals: goals, _seg: seg });
+  }
+  return ls;
+}
+function q(a, p) { return a.length ? a[Math.min(a.length - 1, Math.floor(a.length * p))] : 0; }
+function wilson(k, n) { var p = k / n, z = 1.96, d = 1 + z * z / n, c = p + z * z / (2 * n), h = z * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)); return [(c - h) / d, (c + h) / d]; }
+
+/** 单次模拟：分数线不影响过程（已置为极大值），返回可得得分与对应剩余步数 */
+function runOnce(lv, seed) {
+  var rng = L.makeRng(seed);
+  var b = L.newBoard(rng, lv.ice, lv.doubleRatio);
+  var cells = b.cells, ice = b.ice;
+  var movesLeft = lv.moves, score = 0, iceCleared = 0, collected = {}, guard = 0;
+  var traj = [0];                                    // 每步后的累计得分（供纯分数关卡反推）
+  var st = function () { return { score: score, collected: collected, iceCleared: iceCleared }; };
+  while (movesLeft > 0 && guard++ < 400) {
+    if (L.allGoalsMet(lv, st())) break;
+    var want = lv.goals.filter(function (g) { return g.type === 'collect' && (collected[g.color] || 0) < g.amount; }).map(function (g) { return g.color; });
+    var needIce = lv.goals.some(function (g) { return g.type === 'ice' && iceCleared < g.amount; });
+    var best = null;
+    for (var r = 0; r < 8; r++) for (var c = 0; c < 8; c++) {
+      var dirs = [[0, 1], [1, 0]];
+      for (var d = 0; d < 2; d++) {
+        var rr = r + dirs[d][0], cc = c + dirs[d][1];
+        if (rr > 7 || cc > 7) continue;
+        var a = L.idx(r, c), b2 = L.idx(rr, cc);
+        if (!L.canSwap(cells, ice, a, b2)) continue;
+        L.swapCells(cells, a, b2);
+        var groups = L.findGroups(cells);
+        if (!groups.length) { L.swapCells(cells, a, b2); continue; }
+        var cl = 0, hits = 0, ih = 0;
+        groups.forEach(function (g) { g.cells.forEach(function (ix) { cl++; if (want.indexOf(cells[ix].c) >= 0) hits++; if (ice[ix] > 0) ih++; }); });
+        L.swapCells(cells, a, b2);
+        var v = cl * 10 + 80 * hits + (needIce ? 200 : 0) * ih;
+        if (!best || v > best.v) best = { a: a, b: b2, v: v };
+      }
+    }
+    if (!best) { L.shuffleBoard(cells, ice, rng); continue; }
+    var res = L.playMove(cells, ice, rng, best.a, best.b);
+    if (!res.valid) continue;
+    movesLeft--; score += res.gained; iceCleared += res.iceCleared;
+    for (var kk = 0; kk < 5; kk++) collected[kk] = (collected[kk] || 0) + res.colorCounts[kk];
+    traj.push(score);
+  }
+  var otherMet = lv.goals.slice(1).every(function (g) {
+    if (g.type === 'collect') return (collected[g.color] || 0) >= g.amount;
+    if (g.type === 'ice') return iceCleared >= g.amount;
+    return true;
+  });
+  return { traj: traj, score: score, left: movesLeft, otherMet: otherMet, moves: lv.moves };
+}
+
+var levels = buildLevels(true);
+var report = [];
+for (var i = 0; i < levels.length; i++) {
+  var lv = levels[i], runs = [], endScores = [], endLeft = [];
+  for (var t = 0; t < N; t++) {
+    var r = runOnce(lv, 90000 + lv.id * 7919 + t * 104729);
+    runs.push(r);
+    if (lv._seg === 1) {                              // 纯分数关卡：全步数打满，用轨迹反推
+      endScores.push(r.traj[r.traj.length - 1]);
+    } else if (r.otherMet) {                          // 多目标关卡：收集/冰层达成时的得分
+      endScores.push(r.score);
+      endLeft.push(r.left);
+    }
+  }
+  endScores.sort(function (x, y) { return x - y; });
+  var cand = [0.25, 0.30, 0.40, 0.50].map(function (p) { return Math.round(q(endScores, p) / 10) * 10; });
+  var line = '第' + String(lv.id).padStart(2) + '关 段' + lv._seg + ' 步' + String(lv.moves).padStart(2) +
+             ' 现目标' + String(lv.targetScore).padStart(5) + ' | 可得得分 p25/p50/p75 = ' +
+             String(q(endScores, 0.25)).padStart(5) + '/' + String(q(endScores, 0.5)).padStart(5) + '/' + String(q(endScores, 0.75)).padStart(5) +
+             ' | 其他目标达成率 ' + (lv._seg === 1 ? '—' : (endLeft.length / N * 100).toFixed(0) + '%');
+  report.push({ lv: lv, line: line, cand: cand, endScores: endScores, runs: runs });
+  say(line);
+}
+say('');
+say('=== 候选分数线下的通过率（含 95% CI）===');
+say('关 | 现目标→通过率 | 候选=round(p25)/round(p30)/round(p40)/round(p50) 的通过率');
+report.forEach(function (R) {
+  var lv = R.lv;
+  function passAt(T) {
+    var w = 0;
+    R.runs.forEach(function (r) {
+      if (lv._seg === 1) {
+        // 纯分数关卡：轨迹中首次达到 T 即结算
+        if (r.traj[r.traj.length - 1] >= T) w++;
+      } else {
+        if (r.otherMet && r.score >= T) w++;
+      }
+    });
+    return w / N;
+  }
+  var cur = passAt(lv.targetScore);
+  var parts = R.cand.map(function (T) { return T + ':' + (passAt(T) * 100).toFixed(0) + '%'; });
+  say('第' + String(lv.id).padStart(2) + ' | ' + String(lv.targetScore).padStart(5) + '→' + (cur * 100).toFixed(0).padStart(4) + '% [' +
+      (wilson(Math.round(cur * N), N)[0] * 100).toFixed(0) + '~' + (wilson(Math.round(cur * N), N)[1] * 100).toFixed(0) + '] | ' + parts.join('  '));
+});
+say('');
+say('=== 三段在新候选下的平均通过率（取各段 T=round(p30)）===');
+var segRates = { 1: [], 2: [], 3: [] };
+report.forEach(function (R) {
+  var T = R.cand[1];
+  var w = 0;
+  R.runs.forEach(function (r) {
+    if (R.lv._seg === 1) { if (r.traj[r.traj.length - 1] >= T) w++; }
+    else if (r.otherMet && r.score >= T) w++;
+  });
+  segRates[R.lv._seg].push(w / N);
+});
+[1, 2, 3].forEach(function (s) {
+  var a = segRates[s];
+  say('第 ' + s + ' 段：' + a.map(function (x) { return (x * 100).toFixed(0) + '%'; }).join(' ') +
+      '  平均 ' + (a.reduce(function (x, y) { return x + y; }, 0) / a.length * 100).toFixed(1) + '%' +
+      '  最低 ' + (Math.min.apply(null, a) * 100).toFixed(0) + '%');
+});
+document.title = 'CALIB GOAL DONE';
+</script>
+</body>
+</html>

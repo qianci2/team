@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>星消乐 — 星级线标定（含剩余步数奖励）</title>
+<style>
+  body { background:#12151f; color:#e8ecf5; font:12.5px/1.6 Consolas,"Courier New",monospace; margin:0; padding:16px; }
+  h1 { font-size:14px; color:#8fd0ff; margin:0 0 8px; }
+  pre { white-space:pre-wrap; margin:0; }
+</style>
+</head>
+<body>
+<h1>星消乐 — 星级线标定（最终得分 = 消除得分 + 剩余步数奖励）</h1>
+<pre id="out">运行中…（约 2 分钟）</pre>
+<script src="../game/logic.js"></script>
+<script src="../tests/solver.js"></script>
+<script>
+var out = [];
+function say(s) { out.push(s); document.getElementById('out').textContent = out.join('\n'); }
+var N = 60;
+var levels = GemzLogic.buildLevels();
+
+say('每关 ' + N + ' 次求解器模拟；最终得分含剩余步数奖励；目标档位取 2★ ≈ 0.9×p35、3★ ≈ 0.9×p80。');
+say('');
+say('关  通过率 | 最终得分 p35/p50/p80 | 步数奖励/步 | 建议 2★ / 3★ | 通关线 | 当前星级分布 1★/2★/3★');
+var data = [];
+for (var i = 0; i < levels.length; i++) {
+  var lv = levels[i], wins = 0, scores = [], hist = [0, 0, 0, 0];
+  for (var k = 0; k < N; k++) {
+    var r = GemzSolver.solve(lv, 1000 + lv.id * 97 + k * 13, { fullBudget: GemzLogic.isScoreOnly(lv) });
+    if (r.win) { wins++; scores.push(r.finalScore); hist[r.stars]++; }
+  }
+  scores.sort(function (a, b) { return a - b; });
+  var q = function (p) { return scores.length ? scores[Math.min(scores.length - 1, Math.floor(scores.length * p))] : 0; };
+  var p35 = q(0.35), p50 = q(0.5), p80 = q(0.8);
+  var s2 = Math.round(p35 * 0.9), s3 = Math.round(p80 * 0.9);
+  data.push({ id: lv.id, target: lv.targetScore, moves: lv.moves, s2: s2, s3: s3, p35: p35, p50: p50, p80: p80, rate: wins / N });
+  say('第' + String(lv.id).padStart(2) + ' ' + (wins / N * 100).toFixed(0).padStart(4) + '%  | ' +
+      String(p35).padStart(5) + '/' + String(p50).padStart(5) + '/' + String(p80).padStart(5) + ' | ' +
+      String(lv.bonusPerMove).padStart(4) + ' | ' + String(s2).padStart(5) + ' ' + String(s3).padStart(5) + ' | ' +
+      String(lv.targetScore).padStart(5) + ' | ' +
+      (hist[1] / N * 100).toFixed(0).padStart(3) + '%/' + (hist[2] / N * 100).toFixed(0).padStart(3) + '%/' + (hist[3] / N * 100).toFixed(0).padStart(3) + '%');
+}
+say('');
+say('=== 分段最小二乘拟合 ===');
+function fit(from, to, key, label) {
+  var n = to - from + 1, sx = 0, sy = 0, sxx = 0, sxy = 0;
+  for (var j = from; j <= to; j++) {
+    var k = j - from, y = data[j - 1][key];
+    sx += k; sy += y; sxx += k * k; sxy += k * y;
+  }
+  var b = (n * sxy - sx * sy) / (n * sxx - sx * sx), a = (sy - b * sx) / n;
+  say('  ' + label + '：' + key + ' ≈ ' + Math.round(a) + ' + ' + b.toFixed(1) + '×k  → 第' + from + '关 ' +
+      Math.round(a) + ' / 第' + to + '关 ' + Math.round(a + b * (to - from)));
+  return { a: Math.round(a), b: b };
+}
+var segs = [[1, 5, '关 1-5  '], [6, 15, '关 6-15 '], [16, 30, '关 16-30']];
+var result = {};
+segs.forEach(function (sg) {
+  var f2 = fit(sg[0], sg[1], 's2', sg[2]);
+  var f3 = fit(sg[0], sg[1], 's3', sg[2]);
+  result[sg[0]] = { s2: f2, s3: f3 };
+});
+say('');
+say('=== 不变量检查（2★ > 1.1×通关线、3★ > 1.15×2★，逐关）===');
+var bad = [];
+segs.forEach(function (sg) {
+  for (var j = sg[0]; j <= sg[1]; j++) {
+    var k = j - sg[0], f2 = result[sg[0]].s2, f3 = result[sg[0]].s3;
+    var v2 = Math.round(f2.a + f2.b * k), v3 = Math.round(f3.a + f3.b * k);
+    var t = data[j - 1].target;
+    if (!(v2 > t * 1.1)) bad.push('关' + j + ' 2★(' + v2 + ') ≤ 1.1×通关线(' + Math.round(t * 1.1) + ')');
+    if (!(v3 > v2 * 1.15)) bad.push('关' + j + ' 3★(' + v3 + ') ≤ 1.15×2★(' + Math.round(v2 * 1.15) + ')');
+  }
+});
+say('  ' + (bad.length ? '不满足：' + bad.join('; ') : '全部满足'));
+say('');
+say('=== 建议写回 logic.js 的系数 ===');
+segs.forEach(function (sg) {
+  var f2 = result[sg[0]].s2, f3 = result[sg[0]].s3;
+  say('  ' + sg[2] + ' star2From: ' + f2.a + ', star2Step: ' + f2.b.toFixed(1) +
+      ', star3From: ' + f3.a + ', star3Step: ' + f3.b.toFixed(1));
+});
+document.title = 'CALIB2 DONE';
+</script>
+</body>
+</html>

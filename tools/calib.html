@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>星消乐 — 星级基准分标定</title>
+<style>
+  body { background:#12151f; color:#e8ecf5; font:12.5px/1.6 Consolas,"Courier New",monospace; margin:0; padding:16px; }
+  h1 { font-size:14px; color:#8fd0ff; margin:0 0 8px; }
+  pre { white-space:pre-wrap; margin:0; }
+</style>
+</head>
+<body>
+<h1>星消乐 — 星级基准分标定（打满步数下的得分分布）</h1>
+<pre id="out">运行中…（约 1 分钟）</pre>
+<script src="../game/logic.js"></script>
+<script src="../tests/solver.js"></script>
+<script>
+var out = [];
+function say(s) { out.push(s); document.getElementById('out').textContent = out.join('\n'); }
+var N = 60;
+var levels = GemzLogic.buildLevels();
+
+say('每个关卡打满全部步数（忽略目标达成提前结束），统计通关样本的得分分布。');
+say('');
+say('关  步数 | 得分 p25 / 中位 / p75 / p90 | 建议 分数线=0.6×中位  星级基准=中位  →  1★线 / 2★线 / 3★线');
+var meds = [], p90s = [], p25s = [];
+for (var i = 0; i < levels.length; i++) {
+  var lv = levels[i], scores = [];
+  for (var k = 0; k < N; k++) {
+    // 关 1-5：纯分数关卡，将改为"打满步数"，故按打满步数测量
+    // 关 6-30：目标达成即结束，按真实规则测量
+    var scoreOnly = lv.goals.every(function (g) { return g.type === 'score'; });
+    var r = GemzSolver.solve(lv, 1000 + lv.id * 97 + k * 13, { fullBudget: scoreOnly });
+    if (r.win) scores.push(r.score);
+  }
+  scores.sort(function (a, b) { return a - b; });
+  var q = function (p) { return scores.length ? scores[Math.min(scores.length - 1, Math.floor(scores.length * p))] : 0; };
+  var p25 = q(0.25), med = q(0.5), p75 = q(0.75), p90 = q(0.9);
+  meds.push(med); p90s.push(p90); p25s.push(p25);
+  var goal = Math.round(med * 0.6), base = med;
+  say('第' + String(lv.id).padStart(2) + ' ' + String(lv.moves).padStart(3) + '  | ' +
+      String(p25).padStart(5) + '/' + String(med).padStart(5) + '/' + String(p75).padStart(5) + '/' + String(p90).padStart(5) +
+      ' | ' + String(goal).padStart(5) + '  ' + String(base).padStart(5) + '  →  ' +
+      String(base).padStart(5) + ' / ' + String(Math.round(base * 1.5)).padStart(5) + ' / ' + String(base * 2).padStart(5));
+}
+say('');
+say('=== 分段线性拟合（用于写回 logic.js 的 SEG 常量）===');
+function fit(from, to, label) {
+  var xs = [], ys = [];
+  for (var j = from; j <= to; j++) { xs.push(j); ys.push(meds[j - 1]); }
+  // 最小二乘 y = a + b*x
+  var n = xs.length, sx = 0, sy = 0, sxx = 0, sxy = 0;
+  for (var m = 0; m < n; m++) { sx += xs[m]; sy += ys[m]; sxx += xs[m] * xs[m]; sxy += xs[m] * ys[m]; }
+  var b = (n * sxy - sx * sy) / (n * sxx - sx * sx), a = (sy - b * sx) / n;
+  say('  ' + label + '：星级基准分 ≈ ' + Math.round(a) + ' + ' + b.toFixed(1) + '×(关号-' + from + ')' +
+      '  → 第' + from + '关 ' + Math.round(a) + ' / 第' + to + '关 ' + Math.round(a + b * (to - from)));
+  say('     分数线(0.6×) ≈ ' + Math.round(a * 0.6) + ' + ' + (b * 0.6).toFixed(1) + '×k');
+}
+fit(1, 5, '关 1-5  ');
+fit(6, 15, '关 6-15 ');
+fit(16, 30, '关 16-30');
+document.title = 'CALIB DONE';
+</script>
+</body>
+</html>

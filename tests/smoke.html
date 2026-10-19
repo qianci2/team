@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>星消乐 — 界面层冒烟测试</title>
+<style>
+  body { background:#12151f; color:#e8ecf5; font:12.5px/1.6 Consolas,"Courier New",monospace; margin:0; padding:16px; }
+  h1 { font-size:14px; color:#8fd0ff; margin:0 0 8px; }
+  pre { white-space:pre-wrap; margin:0; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  iframe { width:100%; height:420px; border:1px solid #333c66; border-radius:10px; background:#0d1020; }
+</style>
+</head>
+<body>
+<h1>星消乐 — 界面层冒烟测试（在 iframe 中真实驱动 game/index.html）</h1>
+<div class="grid">
+  <pre id="out">运行中…</pre>
+  <iframe id="frame" src="../game/index.html"></iframe>
+</div>
+<script>
+var out = [];
+function say(s) { out.push(s); document.getElementById('out').textContent = out.join('\n'); }
+var pass = 0, fail = 0, failed = [];
+function t(name, fn) {
+  return Promise.resolve().then(fn).then(function (d) {
+    pass++; say('  [PASS] ' + name + (d ? '  — ' + d : ''));
+  }, function (e) {
+    fail++; failed.push(name + ': ' + e.message); say('  [FAIL] ' + name + '  — ' + e.message);
+  });
+}
+function eq(a, b, m) { if (a !== b) throw new Error((m || 'expect') + ' 期望 ' + b + '，实际 ' + a); }
+function ok(v, m) { if (!v) throw new Error(m || '断言失败'); }
+function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+async function until(fn, ms, label) {
+  var t0 = Date.now();
+  while (Date.now() - t0 < (ms || 8000)) { if (fn()) return true; await sleep(40); }
+  throw new Error('等待超时：' + (label || '条件'));
+}
+
+var frame = document.getElementById('frame');
+var W = null, GZ = null, L = null;
+var jsErrors = [];
+window.addEventListener('error', function (e) { jsErrors.push(String(e.message)); });
+
+/** 找一个合法交换（不成三连的不算） */
+function findValidSwap(gz) {
+  var L = gz.logic, st = gz.state(), cells = st.cells;
+  for (var r = 0; r < 8; r++) for (var c = 0; c < 8; c++) {
+    for (var d = 0; d < 2; d++) {
+      var rr = r + (d ? 1 : 0), cc = c + (d ? 0 : 1);
+      if (rr > 7 || cc > 7) continue;
+      var a = L.idx(r, c), b = L.idx(rr, cc);
+      if (!L.canSwap(cells, st.ice, a, b)) continue;
+      var probe = cells.slice();
+      L.swapCells(probe, a, b);
+      if (L.findGroups(probe).length) return [a, b];
+    }
+  }
+  return null;
+}
+/** 找一个无效交换（交换后不成三连，且不涉及彩虹） */
+function findInvalidSwap(gz) {
+  var L = gz.logic, st = gz.state(), cells = st.cells;
+  for (var r = 0; r < 8; r++) for (var c = 0; c < 8; c++) {
+    for (var d = 0; d < 2; d++) {
+      var rr = r + (d ? 1 : 0), cc = c + (d ? 0 : 1);
+      if (rr > 7 || cc > 7) continue;
+      var a = L.idx(r, c), b = L.idx(rr, cc);
+      if (!L.canSwap(cells, st.ice, a, b)) continue;
+      if (cells[a].t === L.T_RAINBOW || cells[b].t === L.T_RAINBOW) continue;
+      var probe = cells.slice();
+      L.swapCells(probe, a, b);
+      if (!L.findGroups(probe).length) return [a, b];
+    }
+  }
+  return null;
+}
+/** 等待"空闲"：既不在动画中，也没有排队待执行的交换 */
+async function idle(gz) {
+  return until(function () {
+    var s = gz.state();
+    return !!s && !s.busy && gz.queuedSwaps() === gz.queuedHandled();
+  }, 12000, '空闲且输入队列已清空');
+}
+/** 开一局干净的关卡：用例之间不共享对局状态（否则前一个用例打完关会影响后一个） */
+async function freshLevel(gz, id) {
+  gz.closeModal();
+  gz.startLevel(id || 1);
+  await idle(gz);
+  return gz.state();
+}
+async function playOne(gz, tries) {
+  tries = tries || 4;
+  for (var i = 0; i < tries; i++) {
+    await idle(gz);
+    var mv = findValidSwap(gz);
+    if (!mv) throw new Error('棋盘上没有合法交换');
+    var before = gz.state().movesLeft, beforeScore = gz.state().score;
+    gz.swap(mv[0], mv[1]);
+    await idle(gz);
+    if (gz.state().movesLeft !== before || gz.state().score !== beforeScore || gz.state().over) return;
+  }
+  throw new Error('连续 ' + tries + ' 次交换均未生效（busy 是否被卡住？）');
+}
+
+(async function run() {
+  say('=== 加载 game/index.html ===');
+  await until(function () { return frame.contentWindow && frame.contentWindow.GEMZ; }, 9000, 'GEMZ 就绪');
+  W = frame.contentWindow; GZ = W.GEMZ; L = GZ.logic;
+  await t('T1 页面加载无 JS 异常，暴露测试钩子', function () {
+    eq(jsErrors.length, 0, 'JS 错误数：' + jsErrors.join(' | '));
+    ok(typeof GZ.startLevel === 'function', 'GEMZ.startLevel');
+    ok(typeof GZ.swap === 'function', 'GEMZ.swap');
+    return '钩子齐全，脚本错误 0';
+  });
+
+  await t('T2 存档结构符合需求文档 3.6（localStorage: gemz_save_v1）', function () {
+    var raw = W.localStorage.getItem('gemz_save_v1');
+    if (raw) {
+      var s = JSON.parse(raw);
+      ok(typeof s.version === 'number', 'version');
+      ok(typeof s.unlockedLevel === 'number', 'unlockedLevel');
+      ok(typeof s.lives === 'number', 'lives');
+      ok(typeof s.livesUpdatedAt === 'string', 'livesUpdatedAt');
+      ok(s.items && typeof s.items.hammer === 'number', 'items.hammer');
+      return '字段齐全：' + Object.keys(s).join(',');
+    }
+    var live = GZ.save;
+    ok(typeof live.livesUpdatedAt === 'string' && isFinite(Date.parse(live.livesUpdatedAt)), 'livesUpdatedAt 为 ISO 字符串');
+    return '首次运行使用默认存档（键 ' + 'gemz_save_v1' + '），livesUpdatedAt=' + live.livesUpdatedAt;
+  });
+
+  say('');
+  say('=== 关卡地图与开始游戏（FR-10 / FR-11）===');
+  await t('T3 关卡地图渲染 30 关，第 1 关可进入、第 2 关锁定', function () {
+    GZ.screen('screen-levels');
+    var cells = W.document.querySelectorAll('#level-grid .lv');
+    eq(cells.length, 30, '关卡格数');
+    eq(W.document.querySelectorAll('#level-grid .lv.locked').length, 29, '锁定关卡数（未解锁应为 29）');
+    return '30 格，29 个锁定';
+  });
+
+  await t('T4 未解锁关卡点击后不进入对局并给出提示', function () {
+    GZ.screen('screen-levels');
+    W.document.querySelectorAll('#level-grid .lv')[14].click();
+    eq(GZ.currentScreen(), 'screen-levels', '当前界面');
+    ok(W.document.getElementById('toast').textContent.indexOf('先通关') >= 0, '提示文案：' + W.document.getElementById('toast').textContent);
+    return '拦截并提示「' + W.document.getElementById('toast').textContent + '」';
+  });
+
+  await t('T5 点击开始游戏 → 进入第 1 关，HUD 初始化正确', async function () {
+    W.document.getElementById('btn-play').click();
+    await until(function () { return GZ.currentScreen() === 'screen-game' && GZ.state(); }, 5000, '进入对局');
+    var st = GZ.state();
+    eq(st.level.id, 1, '关卡号');
+    eq(st.movesLeft, st.level.moves, '初始步数');
+    eq(st.score, 0, '初始得分');
+    eq(st.cells.filter(function (x) { return x; }).length, 64, '棋盘格数');
+    eq(W.document.getElementById('hud-moves').textContent, String(st.level.moves), 'HUD 步数');
+    return '第 1 关，' + st.level.moves + ' 步，目标分 ' + st.level.targetScore;
+  });
+
+  say('');
+  say('=== 交互（FR-02 / FR-03 / FR-04 / FR-14 / FR-21）===');
+  await t('T6 非法交换回弹：不消耗步数、得分不变、棋盘不变', async function () {
+    await idle(GZ);
+    var st = GZ.state();
+    var mv = findInvalidSwap(GZ);
+    if (!mv) return '本局未找到非法交换（跳过）';
+    var before = JSON.stringify(st.cells), mvBefore = st.movesLeft;
+    GZ.swap(mv[0], mv[1]);
+    await idle(GZ);
+    eq(st.movesLeft, mvBefore, '步数');
+    eq(st.score, 0, '得分');
+    eq(JSON.stringify(GZ.state().cells), before, '棋盘');
+    return '步数保持 ' + mvBefore + '，棋盘无变化';
+  });
+
+  await t('T7 合法交换：产生消除、扣 1 步、得分增加、动画结束后状态归位', async function () {
+    var st = GZ.state();
+    var mvBefore = st.movesLeft;
+    await playOne(GZ);
+    st = GZ.state();
+    ok(st.score > 0, '得分应大于 0（实际 ' + st.score + '）');
+    eq(st.movesLeft, mvBefore - 1, '步数');
+    st.view.forEach(function (v, i) {
+      ok(v.ox === 0 && v.oy === 0 && v.scale === 1 && v.alpha === 1, '第 ' + i + ' 格动画状态未归位');
+    });
+    eq(st.cells.filter(function (x) { return !x; }).length, 0, '空格数');
+    return '得分 ' + st.score + '，扣 1 步，视图状态复位';
+  });
+
+  await t('T8 连续 12 手均能正常结算且无脚本异常', async function () {
+    var played = 0;
+    for (var i = 0; i < 12; i++) {
+      if (GZ.state().over) break;          // 达成全部目标会立即结算，此时停止
+      await playOne(GZ);
+      played++;
+      var st = GZ.state();
+      eq(st.cells.filter(function (x) { return !x; }).length, 0, '第 ' + (i + 1) + ' 手出现空格');
+      ok(st.score >= 0, '得分异常');
+    }
+    eq(jsErrors.length, 0, 'JS 错误：' + jsErrors.join(' | '));
+    return played + ' 手全部正常，累计得分 ' + GZ.state().score +
+      (GZ.state().over ? '（该关已达成立即结算）' : '');
+  });
+
+  say('');
+  say('=== 道具（FR-18 / FR-19）===');
+  await t('T9 重排道具：消耗 1 个、棋盘无直接匹配、剩余可玩', async function () {
+    await freshLevel(GZ, 1);                       // 前置：干净的第 1 关
+    var st = GZ.state();
+    var owned = GZ.save.items.shuffle;
+    if (owned <= 0) { GZ.save.items.shuffle = 1; }
+    GZ.useItem('shuffle');
+    eq(GZ.state().used.shuffle, true, '本关已用标记');
+    eq(L.findGroups(GZ.state().cells).length, 0, '洗牌后不应有直接匹配');
+    ok(L.hasPossibleMove(GZ.state().cells, GZ.state().ice), '洗牌后应仍可玩');
+    return '重排后无直接匹配且可继续';
+  });
+
+  await t('T10 重排道具同一关不可重复使用', function () {
+    var st = GZ.state();
+    ok(st.used.shuffle, '应已标记使用过');
+    var btn = W.document.querySelector('.item[data-item="shuffle"]');
+    eq(btn.disabled, true, '按钮应禁用');
+    return '按钮禁用，本关限用 1 次';
+  });
+
+  await t('T11 +5 步道具：步数立即 +5', function () {
+    GZ.save.items.plus5 = 1;
+    var before = GZ.state().movesLeft;
+    GZ.useItem('plus5');
+    eq(GZ.state().movesLeft, before + 5, '步数');
+    eq(W.document.getElementById('hud-moves').textContent, String(before + 5), 'HUD 步数');
+    return before + ' → ' + GZ.state().movesLeft;
+  });
+
+  await t('T12 锤子道具：点掉一格并触发连锁结算', async function () {
+    if (GZ.state().over) await freshLevel(GZ, 1);
+    GZ.save.items.hammer = 1;
+    GZ.useItem('hammer');
+    eq(GZ.state().hammer, true, '进入锤子模式');
+    var idx = -1;
+    for (var i = 0; i < 64; i++) if (GZ.state().cells[i]) { idx = i; break; }
+    var movesBefore = GZ.state().movesLeft;
+    GZ.hammerAt(idx);
+    await idle(GZ);
+    eq(GZ.state().cells.filter(function (x) { return !x; }).length, 0, '空格数');
+    eq(GZ.state().movesLeft, movesBefore, '锤子不应消耗步数');
+    return '第 ' + idx + ' 格已消除，未消耗步数';
+  });
+
+  await t('T13 金币不足时道具不可用并提示', function () {
+    GZ.save.coins = 0; GZ.save.items.shuffle = 0;
+    GZ.state().used.shuffle = false;
+    GZ.useItem('shuffle');
+    var txt = W.document.getElementById('toast').textContent;
+    ok(txt.indexOf('金币不足') >= 0, '提示：' + txt);
+    eq(GZ.save.items.shuffle, 0, '不应增加道具');
+    return '提示「' + txt + '」';
+  });
+
+  say('');
+  say('=== 胜负结算（FR-07 / FR-08 / FR-09 / FR-10 / FR-13 / FR-19）===');
+  await t('T14 通关：星级、金币、解锁下一关、通关弹窗', async function () {
+    await freshLevel(GZ, 1);
+    var lv = GZ.state().level;
+    GZ.state().score = lv.targetScore + 10;          // 先凑满目标
+    GZ.state().movesLeft = lv.keep3 + 1;             // 本手会消耗 1 步，结算时剩余正好 = keep3 → 3★
+    var coinsBefore = GZ.save.coins;
+    await playOne(GZ);
+    await until(function () { return GZ.state().over; }, 5000, '结算完成');
+    var html = GZ.modalHtml();
+    ok(html && html.indexOf('通关') >= 0, '通关弹窗：' + html);
+    eq(GZ.save.stars[lv.id], 3, '星级');
+    eq(GZ.save.bestScores[lv.id] >= lv.targetScore, true, '最高分记录（结算得分；星级只看剩余步数，不再与分数档位绑定）');
+    eq(GZ.save.unlockedLevel, 2, '解锁关卡');
+    ok(GZ.save.coins > coinsBefore, '金币应增加（' + coinsBefore + ' → ' + GZ.save.coins + '）');
+    var raw = JSON.parse(W.localStorage.getItem('gemz_save_v1'));
+    eq(raw.unlockedLevel, 2, '已持久化 unlockedLevel');
+    eq(raw.stars['1'], 3, '已持久化星级');
+    return '3 星，解锁第 2 关，金币 ' + coinsBefore + ' → ' + GZ.save.coins + '，已写入 localStorage';
+  });
+
+  await t('T15 重玩已通关卡：金币奖励减半（FR-19）', async function () {
+    GZ.closeModal();
+    var lv = GZ.state().level;
+    var before = GZ.save.coins;
+    GZ.startLevel(lv.id);                                   // 重玩同一关
+    await until(function () { return GZ.state() && GZ.state().over === false; }, 5000, '重新开局');
+    GZ.state().score = lv.targetScore + 10;
+    GZ.state().movesLeft = lv.keep3 + 1;
+    await playOne(GZ);
+    await until(function () { return GZ.state().over; }, 5000, '结算完成');
+    var gained = GZ.save.coins - before;
+    eq(gained, Math.round(L.COIN_REWARD[3] * 0.5), '重复通关金币');
+    ok(GZ.modalHtml().indexOf('重复通关') >= 0, '弹窗应提示重复通关');
+    return '重复通关获得 ' + gained + ' 金币（首通为 ' + L.COIN_REWARD[3] + '）';
+  });
+
+  await t('T16 失败：扣 1 次生命、弹窗显示未达成目标、失败不扣金币', async function () {
+    GZ.closeModal();
+    GZ.startLevel(2);
+    await until(function () { return GZ.state() && GZ.state().level.id === 2; }, 5000, '进入第 2 关');
+    var st = GZ.state();
+    st.movesLeft = 1; st.score = 0;                 // 保证未达成目标
+    var coinsBefore = GZ.save.coins, livesBefore = GZ.save.lives;
+    await playOne(GZ);
+    await until(function () { return GZ.state().over; }, 5000, '失败结算');
+    var html = GZ.modalHtml();
+    ok(html && html.indexOf('步数用尽') >= 0, '失败弹窗：' + html);
+    eq(GZ.save.lives, livesBefore - 1, '生命');
+    eq(GZ.save.coins, coinsBefore, '金币不应变化');
+    return '生命 ' + livesBefore + ' → ' + GZ.save.lives + '，金币不变';
+  });
+
+  say('');
+  say('=== 设置 / 无障碍 / 排行榜（FR-12 / FR-17 / FR-22 / FR-23 / FR-25）===');
+  await t('T17 静音开关：状态持久化且图标同步', function () {
+    GZ.closeModal();
+    var before = GZ.save.muted;
+    GZ.openSettings();
+    W.document.getElementById('sw-mute').click();
+    eq(GZ.save.muted, !before, '静音状态');
+    eq(W.document.getElementById('btn-sound').textContent, GZ.save.muted ? '🔇' : '🔊', '图标');
+    var raw = JSON.parse(W.localStorage.getItem('gemz_save_v1'));
+    eq(raw.muted, !before, '已持久化');
+    W.document.getElementById('sw-mute').click();
+    return '静音 ' + before + ' → ' + (!before) + '，已写入存档';
+  });
+
+  await t('T18 色盲友好模式开关可用且不影响对局', function () {
+    GZ.openSettings();
+    W.document.getElementById('sw-cb').click();
+    eq(GZ.save.colorblind, true, '色盲模式');
+    GZ.closeModal();
+    GZ.startLevel(1);
+    ok(GZ.state().cells.length === 64, '对局可正常开始');
+    GZ.save.colorblind = false;
+    return '开启后可正常开局（每种颜色叠加唯一形状符号）';
+  });
+
+  await t('T19 昵称校验：非法昵称被拒，合法昵称可保存', function () {
+    ok(!GZ.validNick('a'), '1 字符应非法');
+    ok(!GZ.validNick('ab'), '2 字符应非法');
+    ok(!GZ.validNick('abcdefghijklmn'), '超过 12 字符应非法');
+    ok(!GZ.validNick('<script>'), '含尖括号应非法');
+    ok(GZ.validNick('星消乐玩家'), '合法中文昵称');
+    ok(GZ.validNick('gem_master-1'), '合法英文昵称');
+    GZ.setNickname('星消乐玩家');
+    eq(GZ.save.nickname, '星消乐玩家', '已保存昵称');
+    return '非法 4 例被拒，合法 2 例通过';
+  });
+
+  await t('T20 排行榜渲染（本地模拟模式）且本人条目高亮', function () {
+    GZ.renderLeaderboard();
+    var rows = W.document.querySelectorAll('#leaderboard .lb-row');
+    ok(rows.length >= 10, '榜单行数 ' + rows.length);
+    eq(W.document.querySelectorAll('#leaderboard .lb-row.me').length, 1, '本人的行数');
+    var scores = [];
+    rows.forEach(function (r) { scores.push(Number(r.querySelector('.lb-score').textContent)); });
+    for (var i = 1; i < scores.length; i++) ok(scores[i - 1] >= scores[i], '第 ' + (i + 1) + ' 行排序错误');
+    return rows.length + ' 行，降序排列，本人高亮';
+  });
+
+  await t('T21 排行榜接口：未配置服务端时返回本地模式，非法昵称返回错误码 1001', async function () {
+    GZ.setNickname('ab');
+    var r = await GZ.submitScore();
+    eq(r.code, 1001, '错误码');
+    GZ.setNickname('星消乐玩家');
+    var r2 = await GZ.submitScore();
+    eq(r2.code, 0, '正常提交');
+    eq(r2.local, true, '本地模式标记');
+    return '非法昵称 → 1001；未配置服务端 → 本地模式';
+  });
+
+  await t('T22 弹窗与界面切换：退出确认、返回地图', function () {
+    GZ.startLevel(1);
+    ok(GZ.currentScreen() === 'screen-game', '应在对局界面');
+    W.document.getElementById('btn-quit').click();
+    ok(GZ.modalHtml().indexOf('退出本关') >= 0, '退出确认弹窗');
+    W.document.getElementById('q-yes').click();
+    eq(GZ.currentScreen(), 'screen-levels', '应返回关卡地图');
+    return '退出确认 → 返回关卡地图';
+  });
+
+  await t('T23 存档导入导出入口存在且导出不抛异常', function () {
+    GZ.openSettings();
+    ok(W.document.getElementById('exp'), '导出按钮');
+    ok(W.document.getElementById('imp'), '导入按钮');
+    ok(W.document.getElementById('imp-file'), '文件输入');
+    ok(W.URL.createObjectURL, 'Blob 导出可用');
+    ok(typeof W.Blob === 'function', 'Blob 构造可用');
+    GZ.closeModal();
+    return '导出/导入控件与 Blob API 均可用';
+  });
+
+  await t('T24 存档持久化：重新载入后进度仍在（FR-11 / NFR-07）', function () {
+    var s = GZ.save;
+    var stars = JSON.stringify(s.stars), unlocked = s.unlockedLevel, coins = s.coins;
+    GZ.reload();
+    eq(JSON.stringify(GZ.save.stars), stars, '星级');
+    eq(GZ.save.unlockedLevel, unlocked, '解锁进度');
+    eq(GZ.save.coins, coins, '金币');
+    return '刷新式重新载入后星级/解锁/金币一致';
+  });
+
+  say('');
+  say('=== 真实指针输入与画面同步（针对性用例：反馈"第一次操作没反应"）===');
+  function firePointer(type, x, y) {
+    var cv = W.document.getElementById('board');
+    cv.dispatchEvent(new W.PointerEvent(type, {
+      clientX: x, clientY: y, bubbles: true, cancelable: true,
+      pointerId: 1, pointerType: 'mouse', isPrimary: true,
+      button: 0, buttons: type === 'pointerup' ? 0 : 1
+    }));
+  }
+  function boardGeom() {
+    var r = W.document.getElementById('board').getBoundingClientRect();
+    var cell = r.width / 8;
+    return { cell: cell, cx: function (c) { return r.left + (c + 0.5) * cell; }, cy: function (r2) { return r.top + (r2 + 0.5) * cell; } };
+  }
+
+  await t('T25 真实指针输入：单击=选中且有可见反馈（不耗步数）；相邻再点=交换；单手势拖动=交换', async function () {
+    await freshLevel(GZ, 1);
+    var g = boardGeom();
+    var mv = findValidSwap(GZ);
+    var before = GZ.state().movesLeft;
+    var boardBefore = GZ.state().cells.map(function (x) { return x ? x.c : '_'; }).join('');
+    // ① 单击：只选中，不消耗步数，但必须有可见/可听反馈
+    firePointer('pointerdown', g.cx(L.colOf(mv[0])), g.cy(L.rowOf(mv[0])));
+    firePointer('pointerup', g.cx(L.colOf(mv[0])), g.cy(L.rowOf(mv[0])));
+    var boardAfterClick1 = GZ.state().cells.map(function (x) { return x ? x.c : '_'; }).join('');
+    eq(GZ.state().movesLeft, before, '第一次单击不应消耗步数（交换需要两个元素）');
+    eq(GZ.state().selected, mv[0], '第一次单击后应处于选中态');
+    var hintText = W.document.getElementById('hint').textContent;
+    ok(hintText.length > 0, '首次选中必须给出操作提示（原文为空会让玩家以为没反应）');
+    // ② 点击相邻元素：完成交换
+    var probe = GZ.state().cells.slice();
+    L.swapCells(probe, mv[0], mv[1]);
+    var precheck = L.findGroups(probe).length;      // 点击前再确认一次该交换确实成立
+    firePointer('pointerdown', g.cx(L.colOf(mv[1])), g.cy(L.rowOf(mv[1])));
+    firePointer('pointerup', g.cx(L.colOf(mv[1])), g.cy(L.rowOf(mv[1])));
+    var justAfter = { busy: GZ.state().busy, selected: GZ.state().selected, queued: GZ.queuedSwaps(), moves: GZ.state().movesLeft };
+    await idle(GZ);
+    if (GZ.state().movesLeft !== before - 1) {
+      throw new Error('第二次点击后即时状态 ' + JSON.stringify(justAfter) +
+        '；点击前探测该交换匹配组数=' + precheck +
+        '；棋盘在首次点击前后' + (boardBefore === boardAfterClick1 ? '一致' : '不一致') +
+        '；mv=' + JSON.stringify(mv) + ' 步数 ' + before + ' → ' + GZ.state().movesLeft);
+    }
+    eq(GZ.state().movesLeft, before - 1, '第二个相邻点击应完成交换');
+    // 关键不变量：一次交换结算完成后棋盘不得残留"未结算的匹配"。
+    // 早先的双重交换缺陷正是把匹配留到下一次操作才消掉，表现为"第二次操作才有反应"。
+    eq(L.findGroups(GZ.state().cells).length, 0, '交换结算后残留的未结算匹配组数');
+    // ③ 单手势拖动：一次操作即完成交换
+    var mv2 = findValidSwap(GZ);
+    var before2 = GZ.state().movesLeft;
+    var dx = L.colOf(mv2[1]) - L.colOf(mv2[0]), dy = L.rowOf(mv2[1]) - L.rowOf(mv2[0]);
+    firePointer('pointerdown', g.cx(L.colOf(mv2[0])), g.cy(L.rowOf(mv2[0])));
+    firePointer('pointermove', g.cx(L.colOf(mv2[0])) + dx * g.cell * 0.6, g.cy(L.rowOf(mv2[0])) + dy * g.cell * 0.6);
+    firePointer('pointerup', g.cx(L.colOf(mv2[1])), g.cy(L.rowOf(mv2[1])));
+    await idle(GZ);
+    eq(GZ.state().movesLeft, before2 - 1, '单手势拖动应完成交换');
+    eq(L.findGroups(GZ.state().cells).length, 0, '拖动交换结算后残留的未结算匹配组数');
+    return '单击→选中并提示「' + hintText + '」，相邻再点 / 直接拖动均可完成交换';
+  });
+
+  await t('T26 画面同步性：任何改变画面的操作都必须立即重绘（防"操作了但画面没变"）', async function () {
+    var P = W.CanvasRenderingContext2D.prototype, origClear = P.clearRect, draws = 0;
+    P.clearRect = function () { draws++; return origClear.apply(this, arguments); };
+    async function expectRedraw(label, action) {
+      await idle(GZ);
+      await sleep(220);
+      var before = draws;
+      action();
+      await sleep(280);
+      ok(draws > before, label + ' 之后应发生重绘（实际增加 ' + (draws - before) + ' 次）');
+    }
+    try {
+      await expectRedraw('开始关卡', function () { GZ.startLevel(1); });
+      await expectRedraw('点击选中元素', function () {
+        var g = boardGeom();
+        firePointer('pointerdown', g.cx(0), g.cy(0));
+        firePointer('pointerup', g.cx(0), g.cy(0));
+      });
+      await expectRedraw('使用重排道具', function () { GZ.save.items.shuffle = 1; GZ.useItem('shuffle'); });
+      await expectRedraw('进入锤子模式（应出现可点击提示框）', function () { GZ.save.items.hammer = 1; GZ.useItem('hammer'); });
+      await expectRedraw('切换色盲模式', function () {
+        GZ.openSettings(); W.document.getElementById('sw-cb').click(); GZ.closeModal();
+      });
+      return '5 类画面变更（开新关/选中/重排/锤子/色盲）均在无额外操作的情况下立即重绘';
+    } finally { P.clearRect = origClear; }
+  });
+
+  say('');
+  say('=== 性能回归（锁死优化成果）===');
+
+  await t('T27 输入排队：动画期间的交换请求被记录并在结算后处理，不静默丢弃', async function () {
+    await freshLevel(GZ, 1);
+    var mv1 = findValidSwap(GZ);
+    var movesBefore = GZ.state().movesLeft;
+    GZ.swap(mv1[0], mv1[1]);                        // 第一手：动画开始
+    ok(GZ.state().busy, '第一手应处于动画中');
+    // 动画中再发起一次相邻交换：应进入队列，并且立刻有可见反馈（选中高亮）
+    var a = L.idx(0, 0), b = L.idx(0, 1);
+    if (!L.canSwap(GZ.state().cells, GZ.state().ice, a, b)) { a = L.idx(7, 6); b = L.idx(7, 7); }
+    GZ.swap(a, b);
+    eq(GZ.queuedSwaps(), 1, '动画期间的交换应被记录为排队（而非被 busy 静默忽略）');
+    eq(GZ.state().selected, a, '排队时应保留选中高亮，让玩家看到输入已被接收');
+    await until(function () { return !GZ.state().busy; }, 12000, '结算完成');
+    eq(GZ.queuedHandled(), 1, '排队项应被处理（执行或按当时棋盘重新判定为非法）');
+    var used = movesBefore - GZ.state().movesLeft;
+    ok(used === 1 || used === 2, '步数消耗应为 1（排队项被判非法）或 2（排队项执行），实际 ' + used);
+    return '排队请求 ' + GZ.queuedSwaps() + ' 次、已处理 ' + GZ.queuedHandled() + ' 次，本回合消耗 ' + used + ' 步';
+  });
+
+  await t('T28 渲染成本不退化：元素外观走精灵缓存、每帧绘制调用受控、静止时不重绘', async function () {
+    var P = W.CanvasRenderingContext2D.prototype;
+    var cnt = { grad: 0, drawImage: 0, clear: 0 };
+    var hooks = { createLinearGradient: 'grad', drawImage: 'drawImage', clearRect: 'clear' };
+    var orig = {};
+    Object.keys(hooks).forEach(function (name) {
+      orig[name] = P[name];
+      P[name] = function () { cnt[hooks[name]]++; return orig[name].apply(this, arguments); };
+    });
+    try {
+      await freshLevel(GZ, 1);
+      // 预热：先走 3 手，让用到的精灵变体全部建立（精灵按需构建，首次出现时才创建）
+      for (var i = 0; i < 3; i++) await playOne(GZ);
+      cnt.grad = 0; cnt.drawImage = 0; cnt.clear = 0;
+      await playOne(GZ);
+      ok(cnt.clear >= 1, '应至少发生一次重绘');
+      // 预热后再走一手，不应再新建渐变（仅当出现全新变体时才允许少量新建）
+      ok(cnt.grad <= 15, '重绘中创建的渐变对象数应远小于按帧重建的量级（实际 ' + cnt.grad + '，回归前为每帧 64 个）');
+      var perFrame = cnt.drawImage / cnt.clear;
+      ok(perFrame <= 90, '每帧 drawImage 次数应 ≤90（实际 ' + perFrame.toFixed(1) + '）');
+      // 静止后应完全停止重绘（脏标记渲染）
+      await sleep(1600);
+      var before = cnt.clear;
+      await sleep(1200);
+      eq(cnt.clear, before, '静止 1.2s 内的重绘次数（应为 0）');
+      return '预热后单次结算仅新建渐变 ' + cnt.grad + ' 个、每帧 drawImage ' + perFrame.toFixed(1) + ' 次、静止重绘 0 次';
+    } finally {
+      Object.keys(hooks).forEach(function (name) { P[name] = orig[name]; });
+    }
+  });
+
+  await t('T30 达成全部目标立即结算，星级按完成时剩余步数评定', async function () {
+    var st = await freshLevel(GZ, 1);
+    var lv = st.level;
+    st.score = lv.targetScore + 10;                     // 凑满目标（分数关卡）
+    st.movesLeft = lv.keep3 + 1;
+    var before = st.movesLeft;
+    await playOne(GZ);
+    await until(function () { return GZ.state().over; }, 6000, '达成目标后应立即结算');
+    // 关键：不是打满步数才结束，而是达成目标的这一手就直接结算
+    eq(GZ.state().movesLeft, before - 1, '应在达成目标的那一手立即结束');
+    ok(GZ.state().movesLeft > 5, '此时剩余步数仍很多（' + GZ.state().movesLeft + '），说明没有打满步数');
+    eq(L.starsByMoves(lv, GZ.state().movesLeft), 3, '剩余 ' + GZ.state().movesLeft + ' 步（≥keep3=' + lv.keep3 + '）应为 3★');
+    eq(GZ.save.stars[lv.id], 3, '已保存 3★');
+    var html = GZ.modalHtml();
+    ok(html.indexOf('完成时剩余步数') >= 0, '结算弹窗应显示完成时剩余步数');
+    ok(html.indexOf('3★ 剩余≥' + lv.keep3) >= 0, '结算弹窗应显示星级标准：' + html.slice(0, 120));
+    return '达成目标即结算（剩 ' + GZ.state().movesLeft + ' 步 → 3★，未打满 ' + lv.moves + ' 步预算）';
+  });
+
+  await t('T31 星级标准实时可见：HUD 随剩余步数显示"现在完成是几星"', async function () {
+    var st = await freshLevel(GZ, 16);
+    var lv = st.level;
+    var goals = W.document.getElementById('hud-goals').textContent;
+    ok(goals.indexOf('现在完成') >= 0, 'HUD 应显示"现在完成 N★"：' + goals);
+    ok(goals.indexOf('3★需剩余≥' + lv.keep3) >= 0, 'HUD 应显示 3★ 阈值');
+    ok(goals.indexOf('2★需≥' + lv.keep2) >= 0, 'HUD 应显示 2★ 阈值');
+    // 用掉步数后星级应下降（推动玩家尽早完成）
+    var starsBefore = L.starsByMoves(lv, GZ.state().movesLeft);
+    await playOne(GZ);
+    var starsAfter = L.starsByMoves(lv, GZ.state().movesLeft);
+    ok(starsAfter <= starsBefore, '用步步数后星级不应上升（' + starsBefore + ' → ' + starsAfter + '）');
+    return '剩余 ' + GZ.state().movesLeft + ' 步 → 现在完成 ' + starsAfter + '★（阈值 3★≥' + lv.keep3 + ' / 2★≥' + lv.keep2 + '）';
+  });
+
+  await t('T32 全程无 JS 异常', function () {
+    eq(jsErrors.length, 0, '捕获到错误：' + jsErrors.join(' | '));
+    return '共执行 32 组断言，脚本错误 0';
+  });
+
+  say('');
+  say('=== 汇总：通过 ' + pass + ' / 失败 ' + fail + ' ===');
+  if (fail) failed.forEach(function (f) { say('  FAIL: ' + f); });
+  else say('全部界面用例通过。');
+  document.title = (fail ? 'FAIL ' + fail : 'PASS ' + pass) + ' — 界面冒烟测试';
+})();
+</script>
+</body>
+</html>

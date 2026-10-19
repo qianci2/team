@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>星消乐 — 得星机制测量</title>
+<style>
+  body { background:#12151f; color:#e8ecf5; font:12.5px/1.6 Consolas,"Courier New",monospace; margin:0; padding:16px; }
+  h1 { font-size:14px; color:#8fd0ff; margin:0 0 8px; }
+  pre { white-space:pre-wrap; margin:0; }
+</style>
+</head>
+<body>
+<h1>星消乐 — 得星机制测量（每关 25 次求解器模拟）</h1>
+<pre id="out">运行中…（约 1 分钟）</pre>
+<script src="../game/logic.js"></script>
+<script src="../tests/solver.js"></script>
+<script>
+var out = [];
+function say(s) { out.push(s); document.getElementById('out').textContent = out.join('\n'); }
+var N = 40;
+var levels = GemzLogic.buildLevels();
+
+say('说明：得分分位取"通关样本"的分数；星数按当前 starsFor（1×/1.5×/2× 目标分）统计。');
+say('');
+say('关  通过率 | 得分 中位/p90/最大 | 目标分 | 星数分布(通关样本) 1★/2★/3★ | 平均星');
+var sumStars = 0, sumWins = 0, three = 0, two = 0, one = 0;
+var medians = [], p90s = [];
+for (var i = 0; i < levels.length; i++) {
+  var lv = levels[i], wins = 0;
+  var scores = [], hist = [0, 0, 0, 0];
+  for (var k = 0; k < N; k++) {
+    var r = GemzSolver.solve(lv, 1000 + lv.id * 97 + k * 13, { fullBudget: GemzLogic.isScoreOnly(lv) });
+    if (r.win) { wins++; scores.push(r.finalScore); hist[r.stars]++; sumStars += r.stars; sumWins++; }
+  }
+  scores.sort(function (a, b) { return a - b; });
+  var med = scores.length ? scores[Math.floor(scores.length / 2)] : 0;
+  var p90 = scores.length ? scores[Math.min(scores.length - 1, Math.floor(scores.length * 0.9))] : 0;
+  var mx = scores.length ? scores[scores.length - 1] : 0;
+  medians.push(med); p90s.push(p90);
+  one += hist[1]; two += hist[2]; three += hist[3];
+  say('第' + String(lv.id).padStart(2) + ' ' + (wins / N * 100).toFixed(0).padStart(4) + '%  | ' +
+      String(med).padStart(5) + '/' + String(p90).padStart(5) + '/' + String(mx).padStart(5) + ' | ' +
+      String(lv.targetScore).padStart(5) + ' | ' +
+      (hist[1] / N * 100).toFixed(0).padStart(3) + '%/' + (hist[2] / N * 100).toFixed(0).padStart(3) + '%/' + (hist[3] / N * 100).toFixed(0).padStart(3) + '%' +
+      ' | ' + ((hist[1] + hist[2] * 2 + hist[3] * 3) / Math.max(1, wins)).toFixed(2));
+}
+say('');
+say('通关样本合计：1★ ' + one + ' / 2★ ' + two + ' / 3★ ' + three + '（共 ' + sumWins + '）');
+say('三率：1★ ' + (one / sumWins * 100).toFixed(0) + '%  2★ ' + (two / sumWins * 100).toFixed(0) + '%  3★ ' + (three / sumWins * 100).toFixed(0) + '%');
+say('平均星级 ' + (sumStars / sumWins).toFixed(2));
+say('');
+say('【得星空间诊断】得分 p90 / 2 星线(1.5×目标分) 与 中位分 / 2 星线 的比值：');
+say('  <1 表示即便是较好的一局也拿不到 2 星，说明星级线定得过高（星级不可获得）');
+var bad = [];
+for (var j = 0; j < levels.length; j++) {
+  var lv2 = levels[j], l2 = lv2.stars[1], l3 = lv2.stars[2];
+  var ratio2 = medians[j] / l2, ratio3 = p90s[j] / l3;
+  if (ratio2 < 1 || ratio3 < 1) bad.push('关' + lv2.id + '(中位/2★线 ' + ratio2.toFixed(2) + ', p90/3★线 ' + ratio3.toFixed(2) + ')');
+}
+say('  ' + (bad.length ? '星级不可获得的关卡：' + bad.join(' ') : '所有关卡 2★/3★ 均可获得'));
+document.title = 'STAR DIAG DONE';
+</script>
+</body>
+</html>

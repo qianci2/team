@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>星消乐 — 逻辑层测试</title>
+<style>
+  body { background:#12151f; color:#e8ecf5; font:13px/1.7 Consolas,"Courier New",monospace; margin:0; padding:20px; }
+  h1 { font-size:15px; color:#8fd0ff; margin:0 0 12px; }
+  pre { white-space:pre-wrap; margin:0; }
+  .ok { color:#5ee08a; font-weight:700; }
+  .bad { color:#ff7b7b; font-weight:700; }
+</style>
+</head>
+<body>
+<h1>星消乐 — 逻辑层自动化测试（tests/suite.js）</h1>
+<pre id="out">运行中…</pre>
+<script src="../game/logic.js"></script>
+<script src="solver.js"></script>
+<script src="suite.js"></script>
+<script>
+  var r = GemzSuite;
+  var el = document.getElementById('out');
+  el.textContent = r.text;
+  var sum = document.createElement('div');
+  sum.className = r.fail ? 'bad' : 'ok';
+  sum.textContent = '\n[' + (r.fail ? 'FAILED' : 'ALL PASSED') + '] 通过 ' + r.pass + ' / 失败 ' + r.fail;
+  el.appendChild(sum);
+  document.title = (r.fail ? 'FAIL ' + r.fail : 'PASS ' + r.pass) + ' — 星消乐测试';
+</script>
+</body>
+</html>

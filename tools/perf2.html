@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>星消乐 — 渲染成本测量</title>
+<style>
+  body { background:#12151f; color:#e8ecf5; font:12.5px/1.6 Consolas,"Courier New",monospace; margin:0; padding:16px; }
+  h1 { font-size:14px; color:#8fd0ff; margin:0 0 8px; }
+  pre { white-space:pre-wrap; margin:0; }
+  iframe { width:760px; height:600px; border:1px solid #333c66; border-radius:10px; background:#0d1020; float:right; }
+</style>
+</head>
+<body>
+<h1>星消乐 — 渲染成本测量（统计 Canvas API 调用次数与耗时）</h1>
+<pre id="out">运行中…</pre>
+<iframe id="frame" src="../game/index.html"></iframe>
+<script>
+var out = [];
+function say(s) { out.push(s); document.getElementById('out').textContent = out.join('\n'); }
+function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+async function until(fn, ms, label) {
+  var t0 = Date.now();
+  while (Date.now() - t0 < (ms || 10000)) { if (fn()) return true; await sleep(40); }
+  throw new Error('等待超时：' + (label || ''));
+}
+var frame = document.getElementById('frame');
+var W = null, GZ = null, L = null;
+
+/** 统计：以 clearRect 次数为"一帧"的判据，累计各绘制 API 的调用次数与耗时 */
+function patchCanvas(w) {
+  var P = w.CanvasRenderingContext2D.prototype;
+  var st = { frames: 0, ms: {}, cnt: {} };
+  ['fill', 'stroke', 'drawImage', 'createLinearGradient', 'save', 'restore', 'fillText', 'beginPath', 'arcTo', 'clearRect'].forEach(function (name) {
+    st.ms[name] = 0; st.cnt[name] = 0;
+    var orig = P[name];
+    if (typeof orig !== 'function') return;
+    P[name] = function () {
+      var t0 = w.performance.now();
+      var r = orig.apply(this, arguments);
+      st.ms[name] += w.performance.now() - t0;
+      st.cnt[name]++;
+      if (name === 'clearRect') st.frames++;
+      return r;
+    };
+  });
+  st.reset = function () { st.frames = 0; Object.keys(st.ms).forEach(function (k) { st.ms[k] = 0; st.cnt[k] = 0; }); };
+  st.report = function (sec) {
+    var lines = [];
+    var total = 0;
+    Object.keys(st.ms).forEach(function (k) { total += st.ms[k]; });
+    lines.push('    重绘 ' + st.frames + ' 次（' + (st.frames / sec).toFixed(1) + ' 次/秒）' +
+               '  单次绘制总耗时 ' + (st.frames ? (total / st.frames).toFixed(2) : '-') + 'ms' +
+               '  每秒绘制耗时 ' + (total / sec).toFixed(0) + 'ms/s（占满帧比例 ' + (total / sec / 10).toFixed(0) + '%）');
+    var parts = [];
+    Object.keys(st.cnt).forEach(function (k) {
+      if (!st.cnt[k]) return;
+      parts.push(k + ' ' + (st.cnt[k] / (st.frames || 1)).toFixed(1) + '次/帧(' + (st.ms[k] / (st.frames || 1)).toFixed(2) + 'ms)');
+    });
+    lines.push('      ' + parts.join('  '));
+    return lines.join('\n');
+  };
+  return st;
+}
+function findValidSwap(gz) {
+  var L = gz.logic, st = gz.state(), cells = st.cells;
+  for (var r = 0; r < 8; r++) for (var c = 0; c < 8; c++) {
+    for (var d = 0; d < 2; d++) {
+      var rr = r + (d ? 1 : 0), cc = c + (d ? 0 : 1);
+      if (rr > 7 || cc > 7) continue;
+      var a = L.idx(r, c), b = L.idx(rr, cc);
+      if (!L.canSwap(cells, st.ice, a, b)) continue;
+      var probe = cells.slice();
+      L.swapCells(probe, a, b);
+      if (L.findGroups(probe).length) return [a, b];
+    }
+  }
+  return null;
+}
+
+(async function () {
+  await until(function () { return frame.contentWindow && frame.contentWindow.GEMZ; }, 10000, 'GEMZ 就绪');
+  W = frame.contentWindow; GZ = W.GEMZ; L = GZ.logic;
+  var pc = patchCanvas(W);
+  var boardW = 0;
+
+  say('环境：Chrome/153 headless（软件渲染，无 rAF，绘制由定时器兜底触发）');
+  say('');
+
+  GZ.startLevel(1);
+  await until(function () { return GZ.state() && !GZ.state().busy; }, 8000, '开局');
+  boardW = W.document.getElementById('board').getBoundingClientRect().width | 0;
+  say('棋盘 CSS 尺寸 ' + boardW + 'px');
+  await sleep(500);
+
+  pc.reset(); await sleep(3000);
+  say('B 对局静止（棋盘持续重绘）');
+  say(pc.report(3));
+
+  pc.reset();
+  var mv = findValidSwap(GZ);
+  GZ.swap(mv[0], mv[1]);
+  await until(function () { return !GZ.state().busy; }, 8000, '结算');
+  say('C 一手棋全过程');
+  say(pc.report(1.5));
+
+  // 输入锁定时长分布
+  var lat = [];
+  for (var i = 0; i < 8; i++) {
+    await until(function () { return !GZ.state().busy; }, 8000, '空闲');
+    var m = findValidSwap(GZ);
+    if (!m) break;
+    var t0 = W.performance.now();
+    GZ.swap(m[0], m[1]);
+    await until(function () { return !GZ.state().busy; }, 8000, '结算');
+    lat.push(W.performance.now() - t0);
+  }
+  lat.sort(function (a, b) { return a - b; });
+  var avg = lat.reduce(function (a, b) { return a + b; }, 0) / lat.length;
+  say('D 一手棋锁定输入：平均 ' + avg.toFixed(0) + 'ms（' + lat.map(function (x) { return x.toFixed(0); }).join('/') + '）');
+  document.title = 'RENDER PERF DONE';
+})().catch(function (e) { say('测量失败：' + e.message); document.title = 'RENDER PERF ERROR'; });
+</script>
+</body>
+</html>
