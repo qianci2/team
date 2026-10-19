@@ -9,6 +9,8 @@
     "node": ">=20"
   },
   "scripts": {
+    "dev": "node scripts/serve.mjs",
+    "start": "npm run dev",
     "check": "node scripts/check-repo.mjs",
     "test": "node --test",
     "test:watch": "node --test --watch"
