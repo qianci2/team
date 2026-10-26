@@ -13,6 +13,8 @@
 | `src/app/messages.js` | 12 类用户提示的统一文案 |
 | `test/session.test.mjs` | 用无 DOM 的测试替身覆盖主流程与异常路径 |
 
+P5 的 M6/M7/M8 实现位于 `src/ui/`，不属于 M5；接入与验收见 [ui.md](ui.md)。
+
 ## 2. 场景与输入
 
 场景固定为 `menu` / `levelSelect` / `playing` / `rank` / `settings`。合法转移：
@@ -51,12 +53,21 @@ M5 不 import 任何 DOM/Canvas/Audio。P5 在 `bootstrapSession({ presentation 
 ```js
 const presentation = {
   onScene(scene) {},             // 场景切换：重绘/切页
-  play(events) {},               // 返回 Promise；完成表示本批动画结束
+  play(events, meta) {},         // 返回 Promise；完成表示本批动画结束
   audio(effect, chain) {},       // effect: clear/swap/item/win/fail
   visibility(hidden) {},         // 页面可见性：暂停/恢复音乐
   tick(now) {},                  // 每帧/定时器推进动画兜底
 };
 ```
+
+`meta` 是 P5 接入时新增的只读参数，用于让 M6 从正确的棋盘开始回放：
+
+| `meta.type` | 载荷 | 用途 |
+| --- | --- | --- |
+| `move` | `move: { from: [r,c], to: [r,c] }` | 交换在 M1 结算前已经发生；M6 先交换再播放 `CascadeStep` |
+| `item` | `item: 'shuffle' \| 'hammer' \| 'plus5'`、`target?` | 道具动画的上下文；无 `board:settled` 时直接同步棋盘 |
+
+忽略第二个参数的旧表现层保持兼容。
 
 `session.view()` 返回冻结的 `ViewState`：场景、棋盘、目标、分数、步数、星级预告、生命/金币/道具、设置、弹窗、提示、排行榜状态、`saveMode`、`inputLocked`。M6 只读该对象，不得回写；M8 只向 `dispatch` 提交语义化意图。
 
@@ -86,6 +97,7 @@ const presentation = {
 
 ## 6. 已知缺口
 
-- **P5 未实现**：`web/` 仍是状态页；M6/M7/M8 的真实渲染、指针/键盘输入、Web Audio 由 54dxx 的 #7 交付。P6 的验收“端到端可玩”必须等 P5 合入后做真机联调，当前只用测试替身验证编排。
+- **P5 已交付**（#7）：`web/` 与 `src/ui/` 提供 Canvas、指针/键盘/滑动、Web Audio 与七个界面，接入说明见 [ui.md](ui.md)。P6 的端到端验收已在 headless Edge 中跑通（43 项交互 + 9 项性能/可见性探针）；真实手机与跨浏览器仍属 P7。
 - `gemz_diag_config` 的配置异常日志尚未接入；`bootstrap` 只把 `levelsReport` 返回给调用方。
 - 排行榜不轮询；进入页面拉取一次，10s 内复用缓存。
+- 排行榜没有真实后端；浏览器控制台的 `/api/rank`、`/api/score` 404 是降级路径的预期结果。
