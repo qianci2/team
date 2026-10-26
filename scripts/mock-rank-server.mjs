@@ -67,7 +67,8 @@ export function createRankServer({ now = () => Date.now(), throttleMs = 10_000 }
     if (typeof nickname !== "string" || !NICKNAME_RE.test(nickname)) {
       return { code: 1001, msg: "昵称仅支持 3–12 个中英文、数字或下划线" };
     }
-    if (!Number.isInteger(totalScore) || totalScore < 0 || totalScore > REJECT_SCORE) {
+    // TC-38：2,150,000 必须被拒绝，2,149,999 接受（阈值本身含在拒绝侧）。
+    if (!Number.isInteger(totalScore) || totalScore < 0 || totalScore >= REJECT_SCORE) {
       return { code: 1002, msg: "分数数据异常，本次成绩未提交" };
     }
 

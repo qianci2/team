@@ -164,6 +164,70 @@ test("attachStorage 只处理本存档键的 storage 事件", () => {
   assert.equal(handlers.has("storage"), false);
 });
 
+test("TC-14：同一存储反复重新加载 20 次，进度字段保持一致", () => {
+  const storage = memoryStorage();
+  const clock = clockAt(T0);
+  const first = createStore({ storage, clock });
+  first.commit(
+    {
+      unlockedLevel: 7,
+      stars: { 1: 3, 2: 2 },
+      bestScores: { 1: 2000, 2: 1800 },
+      coins: 320,
+      items: { shuffle: 2, hammer: 1, plus5: 0 },
+      lives: 3,
+      muted: true,
+      colorblind: true,
+      nickname: "星消乐玩家",
+    },
+    "settle",
+  );
+  const expected = first.get();
+
+  for (let i = 0; i < 20; i += 1) {
+    clock.advance(1000);
+    const reloaded = createStore({ storage, clock });
+    const actual = reloaded.get();
+    assert.equal(actual.unlockedLevel, expected.unlockedLevel);
+    assert.deepEqual(actual.stars, expected.stars);
+    assert.deepEqual(actual.bestScores, expected.bestScores);
+    assert.equal(actual.totalScore, expected.totalScore);
+    assert.equal(actual.coins, expected.coins);
+    assert.deepEqual(actual.items, expected.items);
+    assert.equal(actual.lives, expected.lives);
+    assert.equal(actual.muted, true);
+    assert.equal(actual.colorblind, true);
+    assert.equal(actual.nickname, expected.nickname);
+  }
+});
+
+test("TC-41：两个 store 模拟两个标签页，各自通关不同关后合并保留两关进度", () => {
+  const storage = memoryStorage();
+  const clock = clockAt(T0);
+  const tabA = createStore({ storage, clock });
+  const tabB = createStore({ storage, clock });
+
+  tabA.commit({ unlockedLevel: 2, stars: { 1: 3 }, bestScores: { 1: 1500 } }, "settle");
+  clock.advance(1000);
+  const b = tabB.get();
+  tabB.commit(
+    {
+      ...b,
+      unlockedLevel: 3,
+      stars: { ...b.stars, 2: 2 },
+      bestScores: { ...b.bestScores, 2: 1200 },
+    },
+    "settle",
+  );
+
+  assert.equal(tabB.get().stars[1], 3);
+  assert.equal(tabB.get().bestScores[1], 1500);
+  assert.equal(tabB.get().stars[2], 2);
+  assert.equal(tabB.get().bestScores[2], 1200);
+  assert.equal(tabB.get().unlockedLevel, 3);
+  assert.equal(tabB.get().totalScore, 2700);
+});
+
 test("FR-13：导入合法存档、导出文本；非法导入不改变当前存档", () => {
   const storage = memoryStorage();
   const store = createStore({ storage, clock: clockAt(T0) });

@@ -11,8 +11,10 @@
   "scripts": {
     "dev": "node scripts/serve.mjs",
     "start": "npm run dev",
+    "bench": "node scripts/bench.mjs",
     "check": "node scripts/check-repo.mjs",
     "test": "node --test",
+    "test:coverage": "node --experimental-test-coverage --test",
     "test:watch": "node --test --watch"
   }
 }
