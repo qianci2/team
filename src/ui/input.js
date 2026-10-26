@@ -223,7 +223,9 @@ export function createBoardInput({
           };
         }
       } else if (pointer.moved) {
-        drag = { ...drag, currentX: point.x, currentY: point.y, to: at && isAdjacent(pointer.cell, at) ? at : null };
+        // 指针可能仍在起始格内；目标由位移方向决定，而不是指针所在格。
+        const target = swipeTarget(pointer.cell, dx, dy, layout.cell, SWIPE_THRESHOLD_RATIO);
+        drag = { ...drag, currentX: point.x, currentY: point.y, to: target };
       }
     }
     emitState();
@@ -380,10 +382,9 @@ export function attachGridKeyboard(container, selector = "button:not([disabled])
     if (current < 0) return;
     event.preventDefault();
 
-    const columns = Math.max(
-      1,
-      getComputedStyle(container).gridTemplateColumns.split(" ").filter(Boolean).length || 1,
-    );
+    const grid = document.activeElement?.parentElement;
+    const template = grid ? getComputedStyle(grid).gridTemplateColumns : "";
+    const columns = Math.max(1, template.split(" ").filter(Boolean).length || 1);
     let next = current;
     if (event.key === "ArrowRight") next = Math.min(items.length - 1, current + 1);
     if (event.key === "ArrowLeft") next = Math.max(0, current - 1);

@@ -151,6 +151,8 @@ export function createAudioEngine({ logger = null } = {}) {
   function play(effect, chain = 1) {
     if (disposed) return;
     if (!available) throw new Error("音频不可用");
+    // 音效总是由用户操作触发；首次播放时惰性解锁，避免第一次交换静音。
+    if (!unlocked) unlock();
     if (!unlocked || muted || hidden) return;
     const context = ensureContext();
     if (context.state !== "running") return;

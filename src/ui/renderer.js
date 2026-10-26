@@ -720,7 +720,8 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
 
   function frame(time = now()) {
     if (destroyed) return;
-    const cadence = reduced ? 250 : 1000 / 60;
+    // 阈值略低于一帧，避免 16.6ms / 16.67ms 的抖动把 60Hz 降到 30Hz。
+    const cadence = reduced ? 250 : 1000 / 120;
     if (time - lastFrameAt >= cadence) {
       const index = anim ? anim.index : -1;
       advanceAnimation(time);
