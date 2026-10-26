@@ -9,11 +9,11 @@ import {
   getLevel,
   loadLevels,
   loadLevelsFromText,
-  loadLevelsFromUrl,
   segmentOf,
   validateLevelEntry,
   validateLevelsDoc,
 } from "../src/lib/levels.js";
+import { loadLevelsFromUrl } from "../src/app/levels-loader.js";
 
 const levelsJson = JSON.parse(
   readFileSync(new URL("../src/lib/levels.json", import.meta.url), "utf8"),

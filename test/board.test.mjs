@@ -255,11 +255,9 @@ test("BR-10：炸弹 × 彩虹把最多颜色转为炸弹并依次触发", () =>
     [3, 3, BOMB],
     [3, 4, RAINBOW],
   ]);
-  const counts = [0, 1, 2, 3, 4].map((color) => countColor(board, color));
-  const majority = counts.indexOf(Math.max(...counts));
-
   const result = settle(board, { from: [3, 3], to: [3, 4] }, { rng: createRng(14) });
-  assert.equal(result.steps[0].score.specialBonus, (counts[majority] + 1) * 100 + 300);
+  assert.equal(result.steps[0].score.specialBonus, 600);
+  assert.ok(result.steps[0].score.stepTotal <= 3480);
   assert.ok(result.steps[0].cleared.length > 40);
 });
 

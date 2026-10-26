@@ -5,8 +5,6 @@
  * 因此 FM-07 的时间篡改场景可以在单测中精确构造。
  */
 
-import { starsPreview } from "./score.js";
-
 export const MAX_LIVES = 5;
 export const LIFE_INTERVAL_MS = 15 * 60 * 1000;
 export const REFILL_COST = 200;
@@ -33,10 +31,25 @@ function normalizedStars(stars) {
 
 /**
  * 星级判定（I-14、BR-07）：剩余步数 ≥ keep3 得 3★，≥ keep2 得 2★，否则 1★。
- * 阈值非法时按 1★ 兜底。
+ *
+ * 阈值非法时按 1★ 兜底。本函数由 M4 自行实现，不 import M2，
+ * 以保证 M4 依赖为“无”（AC-A3）。
  */
 export function evaluateStars(remaining, keep) {
-  return starsPreview(remaining, keep);
+  const keep2 = keep?.keep2;
+  const keep3 = keep?.keep3;
+  if (
+    !Number.isInteger(remaining) ||
+    !Number.isInteger(keep2) ||
+    !Number.isInteger(keep3) ||
+    keep2 < 0 ||
+    keep2 >= keep3
+  ) {
+    return 1;
+  }
+  if (remaining >= keep3) return 3;
+  if (remaining >= keep2) return 2;
+  return 1;
 }
 
 /**

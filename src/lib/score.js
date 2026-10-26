@@ -12,7 +12,8 @@ export const RAINBOW_BONUS = 300;
 
 const TILE_SCORE = 10;
 const TILE_COUNT = 64;
-const MAX_SPECIAL_BONUS = 600;
+/** 单批特殊奖励上限（炸弹 100 × 6 或彩虹 300 × 2 的等价值），见 K-07。 */
+export const MAX_SPECIAL_BONUS = 600;
 
 /** 单步理论上限：64 格 × 10 分 × 4.5 + 600（NFR-08）。 */
 export const S_MAX = TILE_COUNT * TILE_SCORE * CHAIN_FACTOR_MAX + MAX_SPECIAL_BONUS;
@@ -46,9 +47,11 @@ export function scoreEvent(event, prevTotal = 0) {
   const factor = chainFactor(chain);
   const clearedCount = nonNegativeInt(event.clearedCount);
   const base = clearedCount * TILE_SCORE;
-  const specialBonus =
+  const rawSpecialBonus =
     nonNegativeInt(event.bombsTriggered) * BOMB_BONUS +
     nonNegativeInt(event.rainbowsTriggered) * RAINBOW_BONUS;
+  // K-07：单批特殊奖励钳到 600，保证 stepTotal ≤ S_MAX（NFR-08 的不变量）。
+  const specialBonus = Math.min(MAX_SPECIAL_BONUS, rawSpecialBonus);
   const stepTotal = Math.round(base * factor) + specialBonus;
   const runTotal = nonNegativeInt(prevTotal) + stepTotal;
 
