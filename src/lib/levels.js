@@ -262,7 +262,13 @@ export function validateLevelEntry(entry, { index = 0 } = {}) {
   };
 }
 
-function fallback(reason, logger) {
+/**
+ * 构造整份配置不可用时的内置默认结果。
+ *
+ * 只做纯数据组装与日志注入；网络读取由应用层 `src/app/levels-loader.js` 负责，
+ * 以保证 M11 不接触浏览器网络与定时器 API（AC-A3）。
+ */
+export function fallbackLevels(reason, logger = null) {
   logger?.warn?.(reason);
   return {
     source: "default",
@@ -294,18 +300,18 @@ export function loadLevels(input, { logger = null } = {}) {
     try {
       doc = parseText(input);
     } catch (error) {
-      return fallback(`关卡配置不是合法 JSON：${error.message}`, logger);
+      return fallbackLevels(`关卡配置不是合法 JSON：${error.message}`, logger);
     }
   }
 
   if (!isPlainObject(doc)) {
-    return fallback("缺少关卡配置，已使用内置默认配置", logger);
+    return fallbackLevels("缺少关卡配置，已使用内置默认配置", logger);
   }
   if (!isInt(doc.version) || doc.version < 1) {
-    return fallback(`关卡配置版本非法：${doc.version}，已使用内置默认配置`, logger);
+    return fallbackLevels(`关卡配置版本非法：${doc.version}，已使用内置默认配置`, logger);
   }
   if (!Array.isArray(doc.levels)) {
-    return fallback("关卡配置缺少 levels 数组，已使用内置默认配置", logger);
+    return fallbackLevels("关卡配置缺少 levels 数组，已使用内置默认配置", logger);
   }
 
   const byLevel = new Map();
@@ -340,7 +346,7 @@ export function loadLevels(input, { logger = null } = {}) {
   }
 
   if (recovered.length === LEVEL_COUNT) {
-    return fallback("关卡配置中没有可用条目，已使用内置默认配置", logger);
+    return fallbackLevels("关卡配置中没有可用条目，已使用内置默认配置", logger);
   }
 
   errors.forEach((message) => logger?.warn?.(message));
@@ -370,39 +376,6 @@ export function validateLevelsDoc(input) {
 /** 从 JSON 文本加载；解析失败按“损坏配置”回落内置默认。 */
 export function loadLevelsFromText(text, options = {}) {
   return loadLevels(text, options);
-}
-
-/**
- * 从 URL 加载关卡配置（浏览器端入口）。
- *
- * 网络失败、超时、非 2xx 或 JSON 解析失败都回落内置默认，不抛异常。
- */
-export async function loadLevelsFromUrl(
-  url,
-  { fetchImpl = globalThis.fetch, timeoutMs = 3000, logger = null } = {},
-) {
-  if (typeof fetchImpl !== "function") {
-    return fallback("当前环境没有 fetch，已使用内置默认配置", logger);
-  }
-
-  const controller = typeof AbortController === "function" ? new AbortController() : null;
-  const timer =
-    controller && timeoutMs > 0
-      ? setTimeout(() => controller.abort(), timeoutMs)
-      : null;
-
-  try {
-    const response = await fetchImpl(url, controller ? { signal: controller.signal } : undefined);
-    if (!response?.ok) {
-      return fallback(`关卡配置请求失败：HTTP ${response?.status}`, logger);
-    }
-    const text = await response.text();
-    return loadLevels(text, { logger });
-  } catch (error) {
-    return fallback(`关卡配置加载失败：${error.message}`, logger);
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
 }
 
 /** 按关卡号取配置；不存在时返回 null。 */

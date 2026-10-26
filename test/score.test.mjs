@@ -5,6 +5,7 @@ import {
   BOMB_BONUS,
   CHAIN_FACTOR_MAX,
   CHAIN_LIMIT,
+  MAX_SPECIAL_BONUS,
   RAINBOW_BONUS,
   S_MAX,
   TOTAL_MAX,
@@ -61,6 +62,41 @@ test("单步上限 3480 与总积分硬上限 2140200", () => {
   assert.equal(cap.base, 640);
   assert.equal(cap.specialBonus, 600);
   assert.equal(cap.stepTotal, S_MAX);
+});
+
+test("K-07：单批特殊奖励钳到 600，7 个以上特殊元素也不突破 S_MAX", () => {
+  const sevenBombs = scoreEvent({
+    chain: 8,
+    clearedCount: 64,
+    bombsTriggered: 7,
+    rainbowsTriggered: 0,
+  });
+  assert.equal(MAX_SPECIAL_BONUS, 600);
+  assert.equal(sevenBombs.specialBonus, 600);
+  assert.equal(sevenBombs.stepTotal, S_MAX);
+
+  const mixed = scoreEvent({
+    chain: 8,
+    clearedCount: 64,
+    bombsTriggered: 10,
+    rainbowsTriggered: 10,
+  });
+  assert.equal(mixed.specialBonus, 600);
+  assert.ok(mixed.stepTotal <= S_MAX);
+});
+
+test("S_MAX 不变量：任意合法计分输入 stepTotal ≤ 3480", () => {
+  for (let chain = -3; chain <= 12; chain += 1) {
+    for (const clearedCount of [0, 1, 3, 16, 64]) {
+      for (const bombsTriggered of [0, 1, 6, 7, 20]) {
+        for (const rainbowsTriggered of [0, 1, 2, 3, 20]) {
+          const score = scoreEvent({ chain, clearedCount, bombsTriggered, rainbowsTriggered });
+          assert.ok(score.stepTotal <= S_MAX);
+          assert.ok(score.specialBonus <= MAX_SPECIAL_BONUS);
+        }
+      }
+    }
+  }
 });
 
 test("星级预告在阈值与阈值 ±1 处切换", () => {

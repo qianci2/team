@@ -7,8 +7,9 @@
 | 文件 | 内容 | 说明 |
 | --- | --- | --- |
 | `src/lib/levels.json` | 30 关配置（DS-2） | 构建期静态资源，字段与设计 §7.3.2 全表一致 |
-| `src/lib/levels.js` | M11 加载与校验 | 纯函数；内置默认配置、逐条校验、自检报告、URL 加载回落 |
-| `test/levels.test.mjs` | 配置与校验单测 | 覆盖 30 关基线、非法配置、缺失/损坏回落 |
+| `src/lib/levels.js` | M11 加载与校验 | 纯函数；内置默认配置、逐条校验、自检报告；不接触网络 |
+| `src/app/levels-loader.js` | 应用层 URL 加载 | `fetch`、3s 超时与回落；网络异常不进入领域层 |
+| `test/levels.test.mjs` | 配置与校验单测 | 覆盖 30 关基线、非法配置、缺失/损坏回落、URL 降级 |
 
 `DEFAULT_LEVELS_DOC` 是内置默认配置，由 BR-02~BR-04 公式与 §7.3.2 的星级阈值预置表生成；单测断言它与 `levels.json` 完全一致，避免两份数据漂移。
 
@@ -86,9 +87,9 @@
 浏览器端入口：
 
 ```js
-import { loadLevelsFromUrl } from "./lib/levels.js";
+import { loadLevelsFromUrl } from "../src/app/levels-loader.js";
 
-const levels = await loadLevelsFromUrl("/data/levels.json");
+const levels = await loadLevelsFromUrl("/src/lib/levels.json");
 ```
 
 网络失败、超时（默认 3s）、非 2xx 或 JSON 解析失败都回落内置默认，不抛异常。
@@ -100,10 +101,12 @@ const levels = await loadLevelsFromUrl("/data/levels.json");
 段 2（6–15）：  M(n) = 20 − ⌊(n − 6) / 2⌋        T(n) = 1400 + 100 × (n − 6)
                 C(n) = 10 + (n − 6)  C 为收集数，颜色按 (n + 1) mod 5 轮换
 段 3（16–30）： M(n) = 25 − ⌊(n − 16) / 3⌋       T(n) = 1900 + 60 × (n − 16)
-                C(n) = 14 + (n − 16)  冰层 I(n) = 7 + round((n − 16) / 5)
+                C(n) = 14 + (n − 16)  冰层 I(n) = 7 + round((n − 16) / 5)（K-05）
 ```
 
 可复核值：`ΣM(n) = 615`（段 1 为 90、段 2 为 180、段 3 为 345）；单关上限区间 `[55,680, 87,000]`；总积分硬上限 `615 × 3480 = 2,140,200`（设计文档 K-03 已修正需求文档 NFR-08 中的笔误）。
+
+冰层取整采用设计表口径而非 BR-04 的 floor 写法（K-05）：第 16–28 关为 7/8/9 格，第 29/30 关为 10 格。该选择已写入 `docs/baseline/02-design-v1.0.md` §13.2 与本文件，代码/配置/测试以设计表为准。
 
 ## 5. 星级阈值标定待办
 
@@ -137,11 +140,11 @@ const levels = await loadLevelsFromUrl("/data/levels.json");
 | `星级阈值与设计文档 §7.3.2 的预置表一致` | FR-09、BR-07（预置值） |
 | `版本号非法 / JSON 损坏 / 缺失配置回落` | FM-12、NFR-10 |
 | `单条非法配置、重复关号、收集/冰层/阈值边界` | FM-12、FR-07 |
-| `loadLevelsFromUrl` 成功/失败路径 | FR-20 式降级思路、NFR-09 |
+| `loadLevelsFromUrl` 成功/失败路径（应用层） | FR-20 式降级思路、NFR-09、AC-A3 |
 
 ## 8. 仍待确认的口径
 
 - **收集颜色可达性**：段 2/3 的颜色按 `(n + 1) mod 5` 轮换，设计要求生产前由代理求解器复核该颜色在当前关的出现频率；本阶段未执行。
-- **冰层数量分档**：需求 BR-04 写作 `7 + ⌊(n − 16) / 5⌋`（7~9），设计 §7.3.2 表为 `7 + round((n − 16) / 5)`（7~10，29/30 关为 10）。本实现以设计表为准，差异已在此记录。
+- **冰层数量分档（已闭合，K-05）**：需求 BR-04 写作 `7 + ⌊(n − 16) / 5⌋`（7~9），设计 §7.3.2 表为 `7 + round((n − 16) / 5)`（7~10，29/30 关为 10）。本实现以设计表为准，并已补 K-05 变更记录，不再作为待确认口径。
 - **总积分上限**：需求 NFR-08 的 `2,147,160` 为笔误，设计 K-03 修正为 `2,140,200`；代码使用后者。
 - **配置日志落盘**：`gemz_diag_config` 属于应用层职责，P4 接入 M10 时补齐。
