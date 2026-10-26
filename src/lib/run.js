@@ -343,10 +343,7 @@ export function useItem(run, kind, target, options = {}) {
   const events = [{ type: "item:used", kind }];
 
   if (kind === "shuffle") {
-    let board = run.board;
-    for (let attempt = 0; attempt < 5 && isDeadlock(board); attempt += 1) {
-      board = shuffleBoard(board, rng);
-    }
+    const board = shuffleBoard(run.board, rng);
     return {
       ...finishAction(run, { board, itemUsed }, events, options),
       settle: null,

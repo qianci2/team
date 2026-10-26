@@ -213,12 +213,18 @@ test("FR-07：双层冰第一次消除不减目标，第二次才计入", () => 
 
 test("FR-22：重排道具不消耗步数且每关限用一次", () => {
   const run = createRun(defaultLevel(3), 7);
+  const snapshot = (board) =>
+    board.tiles
+      .map((row) => row.map((tile) => `${tile.kind}:${tile.id}`).join(","))
+      .join("|");
+  const before = snapshot(run.board);
   const shuffled = useItem(run, "shuffle");
 
   assert.equal(shuffled.result, "applied");
   assert.equal(shuffled.run.movesLeft, run.movesLeft);
   assert.equal(shuffled.run.itemUsed.shuffle, true);
   assert.equal(isDeadlock(shuffled.run.board), false);
+  assert.notEqual(snapshot(shuffled.run.board), before);
 
   const again = useItem(shuffled.run, "shuffle");
   assert.equal(again.result, "rejected");
