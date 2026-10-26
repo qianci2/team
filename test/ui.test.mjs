@@ -16,6 +16,14 @@ import {
 import { CONTRAST_PAIRS, SYMBOLS, TILE_STYLES, auditContrast, contrastRatio, tileName } from "../src/ui/palette.js";
 import { EFFECTS, effectPlan } from "../src/ui/audio.js";
 import {
+  chapterName,
+  formatNumber,
+  goalLabel,
+  goalSummary,
+  starText,
+  sumStars,
+} from "../src/ui/format.js";
+import {
   applyStep,
   planSteps,
   stepTiming,
@@ -130,6 +138,25 @@ test("动画重建：逐步回放与 M1 结算结果逐格一致", () => {
   }
 });
 
+test("渲染快照：固定种子与交换的最终网格稳定", () => {
+  const board = createBoard(createRng(20261026));
+  const found = firstAppliedMove(board);
+  const plan = planSteps(swapBoard(board, found.move), found.result.steps);
+  assert.deepEqual(found.move, { from: [0, 0], to: [1, 0] });
+  assert.equal(found.result.steps.length, 1);
+  assert.deepEqual(tileKinds(plan.board), [
+    [3, 0, 2, 1, 2, 4, 3, 3],
+    [0, 0, 4, 3, 4, 3, 1, 2],
+    [2, 1, 0, 1, 3, 3, 0, 4],
+    [3, 4, 0, 1, 4, 1, 3, 3],
+    [3, 1, 2, 0, 0, 1, 0, 3],
+    [2, 0, 3, 4, 4, 2, 2, 0],
+    [1, 2, 1, 1, 3, 0, 3, 1],
+    [0, 4, 2, 0, 1, 3, 1, 4],
+  ]);
+  assert.deepEqual(iceMatrix(plan.board), Array.from({ length: 8 }, () => Array(8).fill(0)));
+});
+
 test("动画重建：单步清除、下落与补充保持网格完整", () => {
   const board = createBoard(createRng(9));
   const found = firstAppliedMove(board);
@@ -138,6 +165,29 @@ test("动画重建：单步清除、下落与补充保持网格完整", () => {
   assert.ok(after.falls.length > 0);
   assert.ok(after.refills.length > 0);
   assert.equal(after.clearedTiles.length, found.result.steps[0].cleared.length);
+});
+
+test("界面文案：星数、章节、目标与千分位口径一致", () => {
+  assert.equal(starText(0), "☆☆☆");
+  assert.equal(starText(2), "★★☆");
+  assert.equal(starText(3), "★★★");
+  assert.equal(starText(9), "★★★", "星数上限为 3");
+  assert.equal(starText(-2), "☆☆☆");
+  assert.equal(sumStars({ 1: 3, 2: 2, 7: 1 }), 6);
+  assert.equal(sumStars({}), 0);
+  assert.equal(chapterName(1), "第一程");
+  assert.equal(chapterName(3), "第三程");
+  assert.equal(chapterName(4), "第 4 程");
+  assert.equal(goalLabel({ kind: "score" }), "目标分");
+  assert.equal(goalLabel({ kind: "collect" }, { goals: { collect: { color: 2 } } }), "收集赭黄");
+  assert.equal(goalLabel({ kind: "collect" }, {}), "收集星石");
+  assert.equal(goalLabel({ kind: "ice" }), "破除冰层");
+  assert.equal(formatNumber(11090), "11,090");
+  assert.equal(formatNumber(undefined), "0");
+  assert.equal(
+    goalSummary({ goals: { score: 1000, collect: { count: 10 }, ice: { total: 8 } } }),
+    "1,000 分 · 收集 ×10 · 冰层 ×8",
+  );
 });
 
 test("音效：5 类音效都有音符计划，连锁越高音高越高（FR-26）", () => {
