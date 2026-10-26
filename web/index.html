@@ -2,33 +2,462 @@
 <html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>星消乐（Gemz）· P0 工程骨架</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#eee6d6" />
+    <meta
+      name="description"
+      content="星消乐（Gemz）：8×8 棋盘、5 种星石、30 个关卡的轻量级益智消除网页游戏。"
+    />
+    <title>星消乐 Gemz</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23eee6d6'/%3E%3Cpath d='M32 10l6 14 15 2-11 10 3 15-13-8-13 8 3-15-11-10 15-2z' fill='%2335422d'/%3E%3C/svg%3E"
+    />
     <link rel="stylesheet" href="/web/style.css" />
   </head>
   <body>
-    <main class="shell">
-      <p class="eyebrow">P0 · 工程骨架</p>
-      <h1>星消乐 <span>Gemz</span></h1>
-      <p class="lede">
-        8×8 棋盘、5 种颜色、30 个关卡。当前仓库完成了工程骨架与平台工具，
-        游戏玩法将在 P1–P6 按路线图逐步实现。
-      </p>
+    <a class="skip-link" href="#main">跳到主要内容</a>
 
-      <dl class="facts">
-        <div><dt>分支模型</dt><dd>main / develop / feature</dd></div>
-        <div><dt>测试</dt><dd>node:test</dd></div>
-        <div><dt>运行时依赖</dt><dd>0</dd></div>
-      </dl>
+    <div class="app">
+      <p id="save-banner" class="save-banner" role="status" hidden></p>
+      <p id="live" class="visually-hidden" aria-live="polite" aria-atomic="true"></p>
+      <p id="debug" class="debug" hidden aria-hidden="true"></p>
 
-      <p id="demo" class="demo" aria-live="polite">正在加载平台工具…</p>
+      <main id="main" class="main">
+        <!-- UI-1 主菜单 -->
+        <section class="scene scene-menu" data-scene="menu" aria-labelledby="menu-title">
+          <header class="site-head">
+            <button type="button" class="brand" data-nav="menu" aria-label="星消乐首页">
+              <span class="brand-cn">星消乐</span>
+              <span class="brand-en">GEMZ</span>
+            </button>
+            <nav class="site-nav" aria-label="主导航">
+              <button type="button" data-nav="levelSelect">关卡</button>
+              <button type="button" data-nav="rank">排行榜</button>
+              <button type="button" data-nav="profile">个人主页</button>
+              <button type="button" data-nav="settings">设置</button>
+            </nav>
+          </header>
 
-      <nav class="links" aria-label="项目文档">
-        <a href="https://github.com/qianci2/team/blob/main/docs/roadmap.md">路线图</a>
-        <a href="https://github.com/qianci2/team/blob/main/CONTRIBUTING.md">协作规范</a>
-        <a href="https://github.com/qianci2/team/issues">任务列表</a>
-      </nav>
-    </main>
+          <div class="opening">
+            <div class="opening-copy">
+              <p class="eyebrow">8×8 棋盘 · 5 种星石 · 30 个关卡</p>
+              <h1 id="menu-title" tabindex="-1">
+                把散落的星石，<em>拢成一片安静的光。</em>
+              </h1>
+              <p class="lede">
+                交换相邻的星石，三个同色连成一线就会消除。进度留在这台设备上，
+                没有网络也能完成单机流程。
+              </p>
+              <div class="opening-actions">
+                <button type="button" class="btn btn-primary" id="continue-level" data-action="continue">
+                  继续第 1 关
+                </button>
+                <button type="button" class="btn btn-quiet" data-nav="levelSelect">选择关卡</button>
+              </div>
+              <dl class="facts" id="menu-facts" aria-label="当前进度">
+                <div>
+                  <dt>生命</dt>
+                  <dd data-fact="lives">5 / 5</dd>
+                </div>
+                <div>
+                  <dt>金币</dt>
+                  <dd data-fact="coins">0</dd>
+                </div>
+                <div>
+                  <dt>总积分</dt>
+                  <dd data-fact="total">0</dd>
+                </div>
+                <div>
+                  <dt>已解锁</dt>
+                  <dd data-fact="unlocked">第 1 关</dd>
+                </div>
+              </dl>
+              <p class="facts-note">
+                <button type="button" class="link-btn" id="menu-refill" data-action="refill" hidden>
+                  用 200 金币补满生命
+                </button>
+                <span id="menu-refill-hint" hidden></span>
+              </p>
+            </div>
+
+            <div class="opening-art" aria-hidden="true">
+              <span class="shape shape-moss"></span>
+              <span class="shape shape-clay"></span>
+              <span class="shape shape-accent"></span>
+              <span class="shape shape-grass"></span>
+              <span class="shape shape-stone"></span>
+              <span class="art-board">
+                <i class="pebble p0"></i><i class="pebble p1"></i><i class="pebble p2"></i
+                ><i class="pebble p3"></i><i class="pebble p4"></i><i class="pebble p2"></i
+                ><i class="pebble p0"></i><i class="pebble p1"></i><i class="pebble p3"></i
+                ><i class="pebble p4"></i><i class="pebble p1"></i><i class="pebble p0"></i
+                ><i class="pebble p2"></i><i class="pebble p3"></i><i class="pebble p4"></i
+                ><i class="pebble p1"></i>
+              </span>
+            </div>
+          </div>
+
+          <section class="clay-field" aria-labelledby="goals-title">
+            <div>
+              <p class="eyebrow eyebrow-light">每一关，只盯三件小事</p>
+              <h2 id="goals-title">目标不多，够清楚就好。</h2>
+              <p class="field-note">关卡会组合其中一到三种目标。达成全部目标即通关，步数用完则失败。</p>
+            </div>
+            <ul class="feature-list">
+              <li>
+                <span class="feature-mark" aria-hidden="true">分</span>
+                <div><strong>累计得分</strong><p>在步数用完前达到本关目标分。</p></div>
+              </li>
+              <li>
+                <span class="feature-mark" aria-hidden="true">收</span>
+                <div><strong>收集指定星石</strong><p>消除指定颜色的星石，达到数量即可。</p></div>
+              </li>
+              <li>
+                <span class="feature-mark" aria-hidden="true">冰</span>
+                <div><strong>破除冰层</strong><p>在冰层格子上完成消除，逐层敲开。</p></div>
+              </li>
+            </ul>
+          </section>
+
+          <section class="moss-basin" aria-labelledby="steps-title">
+            <div class="basin-head">
+              <p class="eyebrow eyebrow-light">第一次玩</p>
+              <h2 id="steps-title">三个动作，就能开始。</h2>
+            </div>
+            <ol class="steps">
+              <li>
+                <span class="step-number">01</span>
+                <strong>选一个已解锁的关卡</strong>
+                <p>主菜单的“继续”会直接回到你上次解锁的关卡。</p>
+              </li>
+              <li>
+                <span class="step-number">02</span>
+                <strong>交换相邻的两颗星石</strong>
+                <p>点击两颗相邻星石，或按住其中一颗滑向另一颗；键盘用方向键和空格。</p>
+              </li>
+              <li>
+                <span class="step-number">03</span>
+                <strong>在步数用完前完成目标</strong>
+                <p>剩的步数越多，通关星级越高；失败会消耗 1 点生命。</p>
+              </li>
+            </ol>
+          </section>
+
+          <aside class="paper-quote" aria-label="离线说明">
+            <p>没有网络也能玩；排行榜连不上时，单机进度不受影响。</p>
+          </aside>
+        </section>
+
+        <!-- UI-2 关卡选择 -->
+        <section class="scene scene-levels" data-scene="levelSelect" aria-labelledby="levels-title" hidden>
+          <header class="screen-head">
+            <button type="button" class="btn btn-quiet btn-back" data-nav="menu">← 返回主菜单</button>
+            <p class="eyebrow">UI-2 · 关卡选择</p>
+            <h1 id="levels-title" tabindex="-1">三十级，慢慢来。</h1>
+            <p class="lede">每关的目标和步数都不同。已解锁的关卡可以反复挑战，记录最高星级与最高分。</p>
+            <dl class="facts facts-inline" aria-label="当前资源">
+              <div><dt>生命</dt><dd id="level-lives">5 / 5</dd></div>
+              <div><dt>金币</dt><dd id="level-coins">0</dd></div>
+              <div><dt>已解锁</dt><dd id="level-unlocked">第 1 关</dd></div>
+            </dl>
+          </header>
+          <div id="level-chapters" class="level-chapters"></div>
+        </section>
+
+        <!-- UI-3 对局 -->
+        <section class="scene scene-play" data-scene="playing" aria-labelledby="play-title" hidden>
+          <div class="game-top">
+            <div class="game-heading">
+              <p class="eyebrow" id="play-segment">第一程</p>
+              <h1 id="play-title" tabindex="-1">第 1 关</h1>
+            </div>
+            <div class="stat stat-score">
+              <span class="stat-label">得分</span>
+              <strong id="play-score">0</strong>
+            </div>
+            <div class="stat">
+              <span class="stat-label">剩余步数</span>
+              <strong id="play-moves">20</strong>
+            </div>
+            <div class="stat stat-stars">
+              <span class="stat-label">当前完成可得</span>
+              <strong id="play-stars" aria-label="1 星">★☆☆</strong>
+              <span class="stat-note" id="play-star-text">剩 7 步得 2★ · 剩 12 步得 3★</span>
+            </div>
+          </div>
+
+          <p id="tutorial" class="tutorial" hidden>
+            <span>点击相邻两颗星石，或按住一颗滑向另一颗。方向键移动、空格选定与交换。三个同色连成一线即消除。</span>
+            <button type="button" class="link-btn" data-action="dismiss-tutorial">知道了</button>
+          </p>
+
+          <div class="game-body">
+            <aside class="panel goals-panel" aria-labelledby="goals-panel-title">
+              <h2 id="goals-panel-title">本关目标</h2>
+              <ul id="play-goals" class="goal-list"></ul>
+              <p class="panel-note" id="play-hint">目标全部完成即通关。</p>
+            </aside>
+
+            <div class="board-shell" id="board-shell">
+              <canvas
+                id="board"
+                class="board"
+                tabindex="0"
+                role="application"
+                aria-roledescription="8×8 消除棋盘"
+                aria-label="棋盘，使用方向键移动光标，空格选定与交换"
+                aria-describedby="board-help"
+              ></canvas>
+              <p id="board-help" class="visually-hidden">
+                方向键移动光标，空格或回车选定星石；移动到相邻格再按空格交换。Esc 取消选择。使用道具时按空格确认目标。
+              </p>
+            </div>
+
+            <aside class="panel items-panel" aria-labelledby="items-title">
+              <h2 id="items-title">道具</h2>
+              <div class="item-list">
+                <button type="button" class="item-btn" data-item="shuffle">
+                  <span class="item-mark" aria-hidden="true">↻</span>
+                  <span class="item-name">重排</span>
+                  <span class="item-count" data-count="shuffle">1</span>
+                  <span class="item-note" data-note="shuffle">重排全场</span>
+                </button>
+                <button type="button" class="item-btn" data-item="hammer">
+                  <span class="item-mark" aria-hidden="true">⌁</span>
+                  <span class="item-name">锤子</span>
+                  <span class="item-count" data-count="hammer">1</span>
+                  <span class="item-note" data-note="hammer">敲碎一格</span>
+                </button>
+                <button type="button" class="item-btn" data-item="plus5">
+                  <span class="item-mark" aria-hidden="true">+5</span>
+                  <span class="item-name">加步</span>
+                  <span class="item-count" data-count="plus5">1</span>
+                  <span class="item-note" data-note="plus5">+5 步</span>
+                </button>
+              </div>
+              <div class="game-controls">
+                <button type="button" class="btn btn-quiet" id="mute-btn" data-action="mute" aria-pressed="false">
+                  音效：开
+                </button>
+                <button type="button" class="btn btn-quiet" id="help-btn" data-action="help">目标与操作</button>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <!-- UI-5 排行榜 + UI-6 个人主页 -->
+        <section class="scene scene-rank" data-scene="rank" aria-labelledby="rank-title" hidden>
+          <header class="screen-head">
+            <button type="button" class="btn btn-quiet btn-back" data-nav="menu">← 返回主菜单</button>
+            <p class="eyebrow">UI-5 · 排行榜</p>
+            <h1 id="rank-title" tabindex="-1">榜上有人，桌上也有你。</h1>
+            <p class="lede">
+              前 100 名按总积分排序。排行榜不可用时自动显示本地模拟数据，单机游玩不受影响。
+            </p>
+            <p id="rank-source" class="source-badge source-none">尚未载入</p>
+          </header>
+
+          <div class="rank-layout">
+            <section class="panel rank-board" aria-labelledby="rank-board-title">
+              <div class="panel-head">
+                <h2 id="rank-board-title">前 100 名</h2>
+                <div class="rank-actions">
+                  <button type="button" class="btn btn-quiet" id="rank-refresh" data-action="refresh-rank">刷新</button>
+                  <button type="button" class="btn btn-primary btn-small" id="rank-submit" data-action="submit-rank">
+                    提交我的成绩
+                  </button>
+                </div>
+              </div>
+              <p id="rank-message" class="panel-note" hidden></p>
+              <ol id="rank-list" class="rank-list" aria-busy="false"></ol>
+            </section>
+
+            <aside class="panel profile-panel" id="profile-panel" aria-labelledby="profile-title">
+              <p class="eyebrow">UI-6 · 个人主页</p>
+              <h2 id="profile-title" tabindex="-1">我的桌面</h2>
+              <dl class="profile-stats">
+                <div><dt>昵称</dt><dd id="profile-name">未设置</dd></div>
+                <div><dt>总积分</dt><dd id="profile-total">0</dd></div>
+                <div><dt>星星</dt><dd id="profile-stars">0 / 90</dd></div>
+                <div><dt>已解锁</dt><dd id="profile-unlocked">第 1 关</dd></div>
+              </dl>
+              <form id="profile-form" class="nickname-form">
+                <label for="profile-nickname">排行榜昵称</label>
+                <input
+                  id="profile-nickname"
+                  name="nickname"
+                  type="text"
+                  inputmode="text"
+                  maxlength="12"
+                  minlength="3"
+                  autocomplete="nickname"
+                  placeholder="3–12 个中英文、数字或下划线"
+                  aria-describedby="profile-hint"
+                />
+                <p id="profile-hint" class="field-hint">
+                  昵称只用于排行榜；留空可以清除。已设置昵称时，通关会自动提交总积分。
+                </p>
+                <div class="form-actions">
+                  <button type="submit" class="btn btn-primary btn-small">保存昵称</button>
+                  <button type="button" class="btn btn-quiet btn-small" data-action="submit-rank">提交成绩</button>
+                </div>
+              </form>
+              <details class="profile-levels">
+                <summary>全部 30 关成绩</summary>
+                <div id="profile-levels" class="level-table"></div>
+              </details>
+            </aside>
+          </div>
+        </section>
+
+        <!-- UI-7 设置 -->
+        <section class="scene scene-settings" data-scene="settings" aria-labelledby="settings-title" hidden>
+          <header class="screen-head">
+            <button type="button" class="btn btn-quiet btn-back" data-nav="menu">← 返回主菜单</button>
+            <p class="eyebrow">UI-7 · 设置</p>
+            <h1 id="settings-title" tabindex="-1">把桌面调成顺手的样子。</h1>
+            <p class="lede">设置会立即保存。音频在第一次操作后才会开始，切到后台会自动暂停。</p>
+          </header>
+
+          <div class="settings-sheet">
+            <section class="setting-row">
+              <div>
+                <h2>声音</h2>
+                <p>5 类合成音效与很轻的背景铺底。关闭后立即静音，设置会记住。</p>
+              </div>
+              <button type="button" class="switch" id="mute-switch" role="switch" aria-checked="false">
+                <span class="switch-state">已开启</span>
+              </button>
+            </section>
+
+            <section class="setting-row">
+              <div>
+                <h2>色觉辅助</h2>
+                <p>五种星石叠加不同的形状：圆、方、三角、菱形、星。颜色与形状互不替代。</p>
+              </div>
+              <button type="button" class="switch" id="colorblind-switch" role="switch" aria-checked="false">
+                <span class="switch-state">已关闭</span>
+              </button>
+            </section>
+
+            <section class="setting-row setting-shop">
+              <div>
+                <h2>小铺</h2>
+                <p>用金币补充道具；进入关卡后每种道具每关限用一次。当前金币：<strong id="settings-coins">0</strong>。</p>
+              </div>
+              <div class="shop" id="shop"></div>
+            </section>
+
+            <details class="setting-details" id="save-details">
+              <summary>存档：导出与导入</summary>
+              <div class="details-body">
+                <p class="panel-note">
+                  进度保存在本机浏览器。导出会下载一份 JSON 文本；导入会整体覆盖当前进度。
+                </p>
+                <div class="form-actions">
+                  <button type="button" class="btn btn-quiet btn-small" data-action="export-save">导出存档</button>
+                </div>
+                <label for="save-text">导出的存档文本</label>
+                <textarea id="save-text" rows="5" readonly placeholder="点击“导出存档”后显示"></textarea>
+
+                <label for="import-file">从文件导入</label>
+                <input id="import-file" type="file" accept="application/json,.json" />
+                <label for="import-text">或粘贴存档文本</label>
+                <textarea id="import-text" rows="5" placeholder='{"version":1,...}'></textarea>
+                <label class="checkline">
+                  <input id="import-confirm" type="checkbox" />
+                  我明白导入会覆盖当前进度
+                </label>
+                <div class="form-actions">
+                  <button type="button" class="btn btn-primary btn-small" id="import-save" data-action="import-save" disabled>
+                    导入并覆盖
+                  </button>
+                </div>
+              </div>
+            </details>
+
+            <details class="setting-details">
+              <summary>键盘与无障碍</summary>
+              <div class="details-body">
+                <ul class="plain-list">
+                  <li><kbd>Tab</kbd> 依次经过棋盘、道具栏、音效与帮助。</li>
+                  <li><kbd>方向键</kbd> 在棋盘内移动光标，<kbd>空格</kbd>/<kbd>回车</kbd> 选定与交换。</li>
+                  <li><kbd>Esc</kbd> 取消选择或退出锤子模式；<kbd>M</kbd> 切换静音；<kbd>H</kbd> 进入锤子模式。</li>
+                  <li>页面遵循系统的“减少动态效果”设置；关键信息不只依赖颜色表达。</li>
+                </ul>
+              </div>
+            </details>
+
+            <section class="setting-row setting-about">
+              <div>
+                <h2>关于</h2>
+                <p>星消乐 Gemz · 课程团队项目 · 版本 0.1.0（P5 界面）</p>
+                <p id="audio-state" class="panel-note">音频可用，首次操作后启用。</p>
+              </div>
+            </section>
+          </div>
+        </section>
+      </main>
+
+      <footer class="site-foot">
+        <div class="foot-inner">
+          <p class="foot-brand">星消乐 <span>Gemz</span></p>
+          <div class="foot-links">
+            <a href="https://github.com/qianci2/team/blob/develop/docs/baseline/01-requirements-v2.1.md">需求基线</a>
+            <a href="https://github.com/qianci2/team/blob/develop/docs/baseline/02-design-v1.0.md">设计基线</a>
+            <a href="https://github.com/qianci2/team/blob/develop/CONTRIBUTING.md">协作规范</a>
+            <a href="https://github.com/qianci2/team">GitHub</a>
+          </div>
+          <p class="foot-note">自绘与合成素材 · MIT License · 进度仅保存在本机</p>
+        </div>
+      </footer>
+    </div>
+
+    <!-- UI-4 结算 / 失败 / 提示弹窗 -->
+    <div class="dialog-layer" id="dialog-layer" hidden>
+      <div class="dialog-scrim" data-action="dialog-scrim"></div>
+      <div
+        class="dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="dialog-title"
+        aria-describedby="dialog-lines"
+      >
+        <p class="eyebrow" id="dialog-kicker">对局结算</p>
+        <h2 id="dialog-title">这一关，收好了。</h2>
+        <p class="dialog-stars" id="dialog-stars" hidden></p>
+        <dl class="dialog-lines" id="dialog-lines"></dl>
+        <div class="dialog-actions" id="dialog-actions"></div>
+      </div>
+    </div>
+
+    <!-- 目标与操作（对局内本地面板，不参与 M5 状态） -->
+    <div class="dialog-layer" id="help-layer" hidden>
+      <div class="dialog-scrim" data-action="close-help"></div>
+      <div class="dialog dialog-help" role="dialog" aria-modal="true" aria-labelledby="help-title">
+        <p class="eyebrow">对局内参考</p>
+        <h2 id="help-title">目标与操作</h2>
+        <div id="help-goals"></div>
+        <h3>操作</h3>
+        <ul class="plain-list">
+          <li>点击或滑动：先选一颗星石，再点相邻格；滑动超过 0.3 格即可交换。</li>
+          <li>键盘：方向键移动，空格/回车选定与交换，Esc 取消，H 进入锤子模式。</li>
+          <li>动画期间的操作会排队，最多保留 2 个。</li>
+          <li>把步数留到最后：剩余步数越多，通关星级越高。</li>
+        </ul>
+        <div class="form-actions">
+          <button type="button" class="btn btn-primary" data-action="close-help">回到棋盘</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden>
+      <span id="toast-text"></span>
+      <button type="button" class="toast-close" data-action="dismiss-toast" aria-label="关闭提示">×</button>
+    </div>
+
     <script type="module" src="/web/app.js"></script>
   </body>
 </html>
