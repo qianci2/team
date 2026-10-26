@@ -14,6 +14,7 @@ import {
   tapIntent,
 } from "../src/ui/layout.js";
 import { CONTRAST_PAIRS, SYMBOLS, TILE_STYLES, auditContrast, contrastRatio, tileName } from "../src/ui/palette.js";
+import { EFFECTS, effectPlan } from "../src/ui/audio.js";
 import {
   applyStep,
   planSteps,
@@ -137,6 +138,24 @@ test("动画重建：单步清除、下落与补充保持网格完整", () => {
   assert.ok(after.falls.length > 0);
   assert.ok(after.refills.length > 0);
   assert.equal(after.clearedTiles.length, found.result.steps[0].cleared.length);
+});
+
+test("音效：5 类音效都有音符计划，连锁越高音高越高（FR-26）", () => {
+  assert.equal(EFFECTS.length, 5);
+  for (const effect of EFFECTS) {
+    const plan = effectPlan(effect, 1);
+    assert.ok(plan.length >= 1, `${effect} 应有音符`);
+    for (const tone of plan) {
+      assert.ok(tone.freq > 0 && tone.dur > 0 && tone.gain > 0);
+      assert.ok(tone.at >= 0);
+    }
+  }
+  const low = effectPlan("clear", 1)[0];
+  const high = effectPlan("clear", 8)[0];
+  assert.ok(high.freq > low.freq, "连锁 8 的音高应高于连锁 1");
+  assert.equal(effectPlan("clear", 99)[0].freq, high.freq, "连锁序号钳制在 8");
+  assert.equal(effectPlan("win").length, 3);
+  assert.equal(effectPlan("fail").length, 2);
 });
 
 test("动画节奏：整段不超过 1.7s，单步 150–340ms", () => {
