@@ -147,16 +147,18 @@ test("HTTP-1/HTTP-2 mock server：校验、同分排序、10 秒节流与 limit"
   assert.equal(mock.submit({ nickname: "abc_123", totalScore: 1200 }).rank, 2);
   assert.equal(mock.submit({ nickname: "ab", totalScore: 1 }).code, 1001);
   assert.equal(mock.submit({ nickname: "abc_123", totalScore: 2_150_001 }).code, 1002);
+  assert.equal(mock.submit({ nickname: "边界玩家", totalScore: 2_150_000 }).code, 1002);
+  assert.equal(mock.submit({ nickname: "边界玩家", totalScore: 2_149_999 }).code, 0);
 
   // 10 秒内第二次提交被节流，但返回当前名次。
   assert.deepEqual(mock.submit({ nickname: "星消乐玩家", totalScore: 9999 }), {
     code: 0,
-    rank: 1,
+    rank: 2,
     throttled: true,
   });
   now += 10_001;
-  assert.equal(mock.submit({ nickname: "星消乐玩家", totalScore: 9999 }).rank, 1);
-  assert.equal(mock.submit({ nickname: "abc_123", totalScore: 9999 }).rank, 2);
+  assert.equal(mock.submit({ nickname: "星消乐玩家", totalScore: 9999 }).rank, 2);
+  assert.equal(mock.submit({ nickname: "abc_123", totalScore: 9999 }).rank, 3);
 
   const started = await startMockRankServer({ port: 0 });
   try {

@@ -163,6 +163,17 @@ test("P6：失败结算先恢复离线生命再扣 1，恢复不被覆盖", () =
   assert.equal(store.get().lives, 1);
 });
 
+test("FR-11：未解锁关卡不可进入，解锁后可进入", () => {
+  const { session, store } = setup();
+  assert.equal(session.startLevel(2), false);
+  assert.equal(session.view().dialog.id, "locked-level");
+  assert.match(session.view().dialog.lines[0].value, /先通过第 1 关/);
+
+  store.commit({ unlockedLevel: 2 }, "settle");
+  assert.equal(session.startLevel(2), true);
+  assert.equal(session.view().level, 2);
+});
+
 test("无生命时阻止进入并给出补满入口；补满后扣 200 金币", () => {
   const { session, store } = setup();
   store.commit({ lives: 0, coins: 300 }, "lives");

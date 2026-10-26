@@ -153,6 +153,29 @@ export function createStore({
   }
 
   /**
+   * 把一次提交叠加到当前内存状态。
+   *
+   * 普通提交按 FL-04 处理嵌套字段：单调 map 逐项取大、items 按键合并，
+   * 避免较旧标签页用整份快照覆盖刚合并进来的外部进度。导入是“整体替换”，
+   * 直接使用校验后的存档。
+   */
+  function applyPatch(current, patch, reason) {
+    const rawPatch = typeof patch === "function" ? patch(current) : patch ?? {};
+    if (reason === "import") return rawPatch;
+    const base = { ...current, ...rawPatch };
+    for (const field of ["stars", "bestScores", "rewardPaidStars"]) {
+      const merged = { ...(current[field] ?? {}) };
+      for (const [key, value] of Object.entries(rawPatch[field] ?? {})) {
+        merged[key] = Math.max(merged[key] ?? 0, Number(value) || 0);
+      }
+      base[field] = merged;
+    }
+    base.items = { ...(current.items ?? {}), ...(rawPatch.items ?? {}) };
+    base.unlockedLevel = Math.max(current.unlockedLevel ?? 1, rawPatch.unlockedLevel ?? 0);
+    return base;
+  }
+
+  /**
    * 提交变更并同步落盘（I-22）。
    *
    * 写前读取外部存档；若外部 `updatedAt` 更新，先按 FL-04 合并再写。
@@ -170,7 +193,7 @@ export function createStore({
       }
     }
 
-    const base = typeof patch === "function" ? patch(save) : { ...save, ...(patch ?? {}) };
+    const base = applyPatch(save, patch, reason);
     const baseMs = Date.parse(save.updatedAt);
     const nextMs = Math.max(now, Number.isFinite(baseMs) ? baseMs + 1 : now);
     const normalized = normalizeSave(
