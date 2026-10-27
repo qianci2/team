@@ -1,15 +1,16 @@
 # AGENTS.md — 《星消乐》最终项目接手说明
 
 > 给接手本仓库的 AI agent / 新 harness 的第一份文件。读完应能直接继续开发，不需要旧对话记忆。
-> 最后更新：2026-10-26 · 维护者：qianci2（组长）
+> 最后更新：2026-10-26（P5 合入）· 维护者：qianci2（组长）· P5 部分：54dxx
 
 ## 0. 一句话现状
 
 - 仓库：<https://github.com/qianci2/team>（公开）
-- 当前集成分支：`develop`；远端最新 `192a3ae`；CI 全绿
-- 已完成：P0 工程骨架、P1 30 关配置、P2 棋盘/计分、P3 流程/经济；85 个 `node:test` 用例
-- 未完成：P4 存档/排行榜、P5 界面、P6 会话集成、P7 测试/验收、P8 交付
-- `main` 仍停在 `v0.1.0`（P0 骨架）；P1–P3 已进 `develop`
+- 集成分支：`develop`；P0–P6 已完成并合入；P5 交付在 `feature/ui-54dxx`（PR 评审后进入 `develop`）
+- 测试：**151 个 `node:test` 用例**、仓库校验 75 个必需文件
+- 浏览器：`npm run dev` 后打开 <http://127.0.0.1:5173> 即为可玩版本；P5 验收记录见 `docs/ui.md`、截图见 `docs/screenshots/`
+- 未完成：P7 的真实设备/跨浏览器、5 人可用性、30 分钟长会话、难度标定；P8 交付
+- `main` 仍停在 `v0.1.0`（P0 骨架）；P1–P6 在 `develop`
 - 本地/远端 SHA 可能不同（历史曾通过 GitHub API 重建）；以 tree 内容为准，网络恢复后 `git fetch` + `git reset --hard origin/develop`
 
 ## 1. 项目与基线
@@ -34,13 +35,14 @@
 
 三人都是 repo collaborator。每人用自己的 GitHub 身份提交；不要代提交或伪造贡献。
 
-## 3. GitHub 状态（接手时）
+## 3. GitHub 状态（P5 合入时）
 
-- `develop` = `192a3ae`；`main` = `276d1f0`；`v0.1.0` → `276d1f0`。
-- 已合并 PR：#11 P0、#12 P1、#13 P2、#14 P3；接手时无 open PR。
+- `main` = `276d1f0`（`v0.1.0`）；`develop` 含 P4/P6/P7 基线提交。
+- 已合并 PR：#11 P0、#12 P1、#13 P2、#14 P3、#19 领域边界、#20 P4、#21 P6、#22 P7 测试基线。
+- P5：`feature/ui-54dxx` → `develop` 的 PR（#7）；作者 54dxx 不能自批，需要组长或另一位队友评审。
 - 分支保护：`main`/`develop` 需要 `validate` + 1 评审；`main` 管理员也受约束；`develop` 管理员可应急绕过。
-- CI：`.github/workflows/ci.yml` 跑 `npm run check` + `npm test`。
-- Open issues：P4 #6、P5 #7、P6 #8、P7 #9、P8 #10；follow-up #15/#16/#17。
+- CI：`.github/workflows/ci.yml` 跑 `npm run check` + `npm test`（不含 GUI 浏览器）。
+- Open issues：#7 P5（PR 中）、#9 P7、#10 P8、#15/#16/#17 follow-up。
 
 ## 4. 已实现模块
 
@@ -52,42 +54,33 @@
 | M3 | `src/lib/run.js` | 目标进度、立即结算、失败判定、道具限用、死局处理 |
 | M4 | `src/lib/economy.js` | 星级、金币、道具购买、生命恢复与补满 |
 | M12 | `src/lib/random.js`、`clock.js`、`logger.js`、`platform.js` | 随机数、时钟、日志 |
-| P0 | `web/`、`scripts/serve.mjs`、`test/` | 状态页、静态服务器、测试脚手架 |
+| M5 | `src/app/session.js`、`bootstrap.js` | 场景状态机、对局生命周期、弹窗、队列、生命恢复 |
+| M9/M10 | `src/app/rank.js`、`store.js`、`save-schema.js` | 排行榜客户端/降级、DS-1 存档、迁移、多标签页 |
+| M6 | `src/ui/layout.js`、`palette.js`、`animation.js`、`renderer.js` | 布局、配色/形状、CascadeStep 回放、Canvas 绘制 |
+| M7 | `src/ui/audio.js` | 5 类合成音效、背景铺底、静音、可见性暂停 |
+| M8 | `src/ui/input.js` | 指针/触屏/键盘、0.3 格滑动、锤子瞄准 |
+| UI 装配 | `src/ui/app.js`、`format.js`、`web/` | 七个界面、HUD/弹窗、设置、排行榜、导入导出 |
+| P0 | `scripts/serve.mjs`、`test/` | 静态服务器、测试脚手架、仓库校验 |
 
 验证：
 
-- `npm run check`：44 个必需文件 + 3 组基线标记。
-- `npm test`：85 个用例通过。
-- `npm run dev`：<http://127.0.0.1:5173>（状态页）。
+- `npm run check`：75 个必需文件 + 3 组基线标记。
+- `npm test`：151 个用例通过；覆盖率行 93.74% / 分支 82.99% / 函数 95.35%。
+- `npm run dev`：<http://127.0.0.1:5173>（可玩）。
 
-## 5. 必须先处理（P4 前）
+## 5. 已解决的 follow-up
 
-### #15 领域层模块边界（最高优先）
-
-- `board.js`（M1）import `scoreEvent`（M2）并产出 `ScoreBreakdown`；`run.js`（M3）直接 import M1/M2；`economy.js`（M4）import M2 `starsPreview`；`levels.js`（M11）直接使用 `fetch`/`AbortController`/`setTimeout`。
-- 设计 AC-A3 要求领域层模块之间无相互 import；M1 明确“不计分”；M4 依赖“无”；M11 纯函数。设计 `SettleResult` 又包含 score，基线内部矛盾。
-- 处理方式（二选一，记录在 #15）：
-  - A. 按设计重构：M1 只返回 `ScoreEvent`/消除步骤，M3 调 M2；M3/M4/M11 注入依赖或保持纯函数。
-  - B. 修订设计：允许 M1 调 M2 产出 `ScoreBreakdown`，放宽 import 规则，并补 K-xx。
-- 在选定前不要继续扩展 M1/M3 的接口，也不要基于旧接口写 P5 UI。
-
-### #16 K-05 冰层取整
-
-- BR-04 写 `I(n) = 7 + ⌊(n−16)/5⌋`（7~9），设计 §7.3.2 表用 `7 + round((n−16)/5)`（29/30 关为 10）。代码跟设计表。补 K-05 或改回 floor，并同步测试/文档。
-
-### #17 S_MAX 特殊奖励
-
-- `scoreEvent` 未限制 specialBonus ≤ 600；`S_MAX=3480` 依赖该前提；一手结算触发 7+ 个特殊元素时可能突破。补不变量测试、钳制或设计修正。
-
-低优先级：`createBoard` 50 次失败无 `board:generate_fallback` 日志；`ensurePlayable` 重建后未复核死局；P6 集成需先 `restoreLives` 再 `consumeLife`。
+- **#15 领域边界**：按方案 B 收敛为 `M3 → M1 → M2` 与 `M3 → M2`，M4/M11 不 import 其他领域模块；记录为 K-06，并由 `test/domain-boundaries.test.mjs` 静态检查。
+- **#16 K-05 冰层取整**：维持设计 §7.3.2 的 `round` 口径（7~10），已写入基线 K-05，`levels.json` 与测试一致。
+- **#17 S_MAX**：`scoreEvent` 把 `specialBonus` 钳到 600（K-07），新增 7+ 特殊元素与 `stepTotal ≤ S_MAX` 不变量测试。
+- **低优先级**：`createBoard` 50 次失败日志、`ensurePlayable` 重建后复核死局、P6 的 `restoreLives` → `consumeLife` 顺序均已处理或不再阻塞；若发现回归，新开 issue 并补测试。
 
 ## 6. 下一阶段
 
-- P4 #6（组长）：DS-1 存档/迁移/多标签页、M9 排行榜 3s 超时与降级、mock server。
-- P5 #7（54dxx）：M6/M7/M8、UI-1~7、无障碍。
-- P6 #8（组长）：M5 会话编排、FL-07。
-- P7 #9、P8 #10。
-- 建议顺序：#15 → P4/P5 并行 → P6 → P7 → P8。
+- P5 #7 已交付到 `feature/ui-54dxx`，等评审合入；验收记录在 `docs/ui.md`。
+- P7 #9 剩余：真实手机与 Safari/Firefox、5 人可用性、30 分钟长会话、TC-39/TC-40 代理求解器标定、`starKeep` 阈值。
+- P8 #10：`develop` → `main` release PR、`v0.3.0`/`v1.0.0` tag、演示材料、最终追溯矩阵。
+- 排行榜仍只有客户端 + mock + 降级；不要声称已部署真实服务。
 
 ## 7. 工作流
 
@@ -102,12 +95,12 @@
 
 ```bash
 node -v          # 22+
-npm run check    # 44 files / 3 marker groups
-npm test         # 85 tests
+npm run check    # 75 files / 3 marker groups
+npm test         # 151 tests
 npm run dev      # http://127.0.0.1:5173
 ```
 
-无需 `npm install`（零运行时依赖）。浏览器里目前是状态页；游戏界面在 P5。
+无需 `npm install`（零运行时依赖）。浏览器里是完整游戏；`?debug=1` 显示 FPS，`?level=5` 可直接进入已解锁关卡。浏览器验收不在 CI 中执行，记录见 `docs/ui.md` §10。
 
 ## 9. 关键约束
 
@@ -122,8 +115,8 @@ npm run dev      # http://127.0.0.1:5173
 ## 10. 工作区推荐
 
 - **推荐**：`E:\repos\team`（纯 ASCII 路径），把仓库根作为唯一 workspace root；新 harness 打开这个目录。
-- 当前工作副本可在 `E:\repos\软件工程\team`；路径含中文，能用但部分工具可能有编码问题；新环境建议 ASCII。
-- 不要把 `E:\repos\软件工程\game` 当作最终项目工作区——那是实验一/二仓库，`AGENTS.md`/`game-impl` 是另一套内容。
+- 当前 P5 工作副本：`E:\Zcode工作目录\软件工程\team`；路径含中文，能用但部分工具可能有编码问题；新环境建议 ASCII。
+- 不要把 `E:\Zcode工作目录\软件工程\game` 当作最终项目工作区——那是实验一/二仓库，`AGENTS.md`/`game-impl` 是另一套内容。
 - 不要同时把父目录或多个仓库加进 workspace；只加 `team` 仓库根（含 `.git`、`AGENTS.md`、`README.md`、`src/`、`docs/`）。
 - 新环境 fresh clone：
 
@@ -138,12 +131,12 @@ npm run dev      # http://127.0.0.1:5173
 
 ## 11. 接手前 30 分钟检查
 
-1. `git status` / `git log --oneline -10`；确认在 `develop`。
-2. `npm run check`（44）和 `npm test`（85）。
-3. 读 `README.md`、`CONTRIBUTING.md`、`docs/roadmap.md`、`docs/baseline/README.md`。
-4. 打开 #15/#16/#17/#6；先定 #15 方案。
-5. `git remote -v`；测试 `git ls-remote`；失败则用 GitHub API（见 `HANDOFF-LOCAL.md`）。
-6. 不要先写代码：先确认 #15 的接口决策，再开 P4/P5 分支。
+1. `git status` / `git log --oneline -10`；确认在 `develop` 或 P5 功能分支。
+2. `npm run check`（75）和 `npm test`（151）。
+3. 读 `README.md`、`CONTRIBUTING.md`、`docs/roadmap.md`、`docs/ui.md`、`docs/baseline/README.md`。
+4. 打开 #7/#9/#10；确认 P5 PR 状态与剩余 P7 项。
+5. `npm run dev` 实际走一遍主流程：主菜单 → 选关 → 交换 → 结算/失败 → 排行榜 → 设置。
+6. `git remote -v`；测试 `git ls-remote`；失败则用 GitHub API（见 `HANDOFF-LOCAL.md`）。
 
 ## 12. 文档索引
 
@@ -153,4 +146,7 @@ npm run dev      # http://127.0.0.1:5173
 - `docs/project-brief.md`：课程最终项目要求与评分口径。
 - `docs/baseline/README.md`：需求/设计基线、编号、K-01~K-04、变更规则。
 - `docs/levels.md`：关卡字段、校验口径、星级标定待办。
-- Issues：#6–#10（阶段任务）、#15–#17（审查 follow-up）。
+- `docs/ui.md`：P5 界面、操作、契约、无障碍、响应式与浏览器验收。
+- `docs/screenshots/`：桌面与窄屏验收截图及说明。
+- `docs/test-report.md`、`docs/traceability.md`：测试结果、TC 映射与实现追溯。
+- Issues：#7 P5、#9 P7、#10 P8、#15–#17 follow-up（均已处理，见 §5）。

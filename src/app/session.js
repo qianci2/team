@@ -130,7 +130,7 @@ export function createSession({
     }
   }
 
-  function animationEvents(events) {
+  function animationEvents(events, meta = null) {
     const play = presentation?.play;
     if (typeof play !== "function") {
       return;
@@ -138,7 +138,7 @@ export function createSession({
     locked = true;
     lockDeadline = nowOf(clock) + ANIMATION_FALLBACK_MS;
     Promise.resolve()
-      .then(() => play(events))
+      .then(() => play(events, meta))
       .catch((error) => logger?.warn?.("动画播放失败，已释放输入锁", error))
       .finally(() => {
         locked = false;
@@ -323,7 +323,10 @@ export function createSession({
     emit({ type: "run:changed", run: statusOf(run) });
     emit({ type: "input:lock" });
     playAudio("clear", events.find((event) => event.type === "board:settled")?.steps?.length ?? 1);
-    animationEvents(events);
+    animationEvents(events, {
+      type: "move",
+      move: { from: [...intent.from], to: [...intent.to] },
+    });
     afterRun(outcome);
     return outcome.result;
   }
@@ -354,7 +357,11 @@ export function createSession({
     );
     emit({ type: "item:used", kind: intent.kind });
     playAudio("item");
-    animationEvents(outcome.events ?? []);
+    animationEvents(outcome.events ?? [], {
+      type: "item",
+      item: intent.kind,
+      target: intent.target ?? null,
+    });
     afterRun(outcome);
     return outcome.result;
   }

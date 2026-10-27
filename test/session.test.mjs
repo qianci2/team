@@ -236,12 +236,14 @@ test("FR-19：昵称校验、空串允许清空、合法昵称持久化", () => 
 
 test("FR-25：表现层动画期间输入排队，容量 2，结束后释放输入锁", async () => {
   const events = [];
+  const plays = [];
   let release;
   const gate = new Promise((resolve) => {
     release = resolve;
   });
   const presentation = {
-    play: async () => {
+    play: async (steps, meta) => {
+      plays.push({ steps, meta });
       await gate;
     },
     audio: () => {},
@@ -255,6 +257,12 @@ test("FR-25：表现层动画期间输入排队，容量 2，结束后释放输�
   session.startLevel(1);
   assert.equal(session.dispatch({ type: "move", from: [3, 3], to: [2, 3] }), "applied");
   assert.equal(session.view().inputLocked, true);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(
+    plays[0].meta,
+    { type: "move", move: { from: [3, 3], to: [2, 3] } },
+    "M6 需要本步交换信息才能从交换后的棋盘开始回放",
+  );
 
   // 锁内入队；容量 2，第三次入队丢弃最旧。
   assert.equal(session.dispatch({ type: "move", from: [0, 0], to: [0, 1] }), "queued");
