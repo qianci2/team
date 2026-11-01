@@ -1,9 +1,10 @@
 /**
  * M7 音频与视效（I-30、FR-26/FR-27、FL-07）。
  *
- * Web Audio 合成 5 类音效与一段很轻的背景铺底；首次用户交互后才
- * 创建 AudioContext，静音与页面可见性都只改增益/上下文状态，不参与
- * 任何游戏规则。上下文不可用时由 M5 捕获并静默降级（FM-09）。
+ * CC0 采样 + Web Audio 合成层：采样负责 5 类动作的质感，合成层补高频
+ * 包边、连锁音高与很轻的背景铺底；首次用户交互后才创建 AudioContext，
+ * 静音与页面可见性都只改增益/上下文状态，不参与任何游戏规则。
+ * 上下文或采样不可用时由 M5 捕获并静默降级（FM-09）。
  */
 
 export const EFFECTS = Object.freeze(["clear", "swap", "item", "win", "fail"]);
@@ -71,11 +72,21 @@ export function effectPlan(effect, chain = 1) {
  * 创建音频引擎。`play` 只在已解锁且未静音/未隐藏时发声；
  * 任何异常都向上抛，让 M5 把 `audioAvailable` 置 false。
  */
+const SAMPLE_FILES = Object.freeze({
+  swap: "/assets/audio/swap.ogg",
+  clear: "/assets/audio/clear.ogg",
+  item: "/assets/audio/item.ogg",
+  win: "/assets/audio/win.ogg",
+  fail: "/assets/audio/fail.ogg",
+});
+
 export function createAudioEngine({ logger = null } = {}) {
   let ctx = null;
   let master = null;
   let musicGain = null;
   let musicNodes = [];
+  let samples = {};
+  let samplesLoading = null;
   let muted = false;
   let hidden = false;
   let unlocked = false;
@@ -100,6 +111,59 @@ export function createAudioEngine({ logger = null } = {}) {
       logger?.warn?.("AudioContext 创建失败", error);
       throw error;
     }
+  }
+
+  function decodeSample(context, data) {
+    return new Promise((resolve, reject) => {
+      const result = context.decodeAudioData(data, resolve, reject);
+      if (result?.then) result.then(resolve, reject);
+    });
+  }
+
+  function ensureSamples() {
+    if (samplesLoading || disposed) return samplesLoading ?? Promise.resolve();
+    if (typeof globalThis.fetch !== "function") return Promise.resolve();
+    samplesLoading = Promise.all(
+      Object.entries(SAMPLE_FILES).map(async ([effect, url]) => {
+        try {
+          const response = await globalThis.fetch(url, { cache: "force-cache" });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const buffer = await response.arrayBuffer();
+          samples[effect] = await decodeSample(ensureContext(), buffer);
+        } catch (error) {
+          logger?.warn?.(`音效采样加载失败：${effect}`, error);
+        }
+      }),
+    ).then(() => undefined);
+    return samplesLoading;
+  }
+
+  function playSample(effect, chain, startAt) {
+    const buffer = samples[effect];
+    if (!buffer) return false;
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    const isClear = effect === "clear";
+    source.playbackRate.value = isClear
+      ? 1 + (clampChain(chain) - 1) * 0.055
+      : effect === "fail"
+        ? 0.94
+        : 1;
+    const gain = ctx.createGain();
+    const level = effect === "win" ? 0.34 : effect === "fail" ? 0.26 : 0.24;
+    const begin = startAt;
+    const end = begin + buffer.duration / source.playbackRate.value;
+    gain.gain.setValueAtTime(0.0001, begin);
+    gain.gain.exponentialRampToValueAtTime(level, begin + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, end);
+    source.connect(gain).connect(master);
+    source.start(begin);
+    source.stop(end + 0.02);
+    source.addEventListener?.("ended", () => {
+      gain.disconnect();
+      source.disconnect();
+    });
+    return true;
   }
 
   function buildMusic() {
@@ -142,6 +206,7 @@ export function createAudioEngine({ logger = null } = {}) {
       if (context.state === "suspended") void context.resume();
       unlocked = true;
       buildMusic();
+      void ensureSamples();
     } catch (error) {
       available = false;
       logger?.warn?.("音频解锁失败，已静默运行", error);
@@ -157,6 +222,9 @@ export function createAudioEngine({ logger = null } = {}) {
     const context = ensureContext();
     if (context.state !== "running") return;
     const startAt = context.currentTime + 0.005;
+    const hasSample = playSample(effect, chain, startAt);
+    // 采样负责“质感”，合成层只保留很轻的高频/低频包边，避免两张皮。
+    const synthGain = hasSample ? (effect === "clear" ? 0.3 : 0.18) : 1;
     for (const tone of effectPlan(effect, chain)) {
       const oscillator = context.createOscillator();
       const envelope = context.createGain();
@@ -164,7 +232,7 @@ export function createAudioEngine({ logger = null } = {}) {
       oscillator.frequency.value = tone.freq;
       const begin = startAt + tone.at;
       envelope.gain.setValueAtTime(0, begin);
-      envelope.gain.linearRampToValueAtTime(tone.gain, begin + 0.008);
+      envelope.gain.linearRampToValueAtTime(tone.gain * synthGain, begin + 0.008);
       envelope.gain.exponentialRampToValueAtTime(0.0001, begin + tone.dur);
       oscillator.connect(envelope).connect(master);
       oscillator.start(begin);

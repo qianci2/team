@@ -7,7 +7,7 @@
 
 - 仓库：<https://github.com/qianci2/team>（公开）
 - 发布：`v1.0.1`（2026-11-01）；`main` 为发布版本，`develop` 为集成分支
-- 测试：**155 个 `node:test` 用例**、仓库校验 90 个必需文件
+- 测试：**155 个 `node:test` 用例**、仓库校验 96 个必需文件
 - 浏览器：`npm run dev` 后打开 <http://127.0.0.1:5173> 即为可玩版本；验收记录见 `docs/ui.md`、截图见 `docs/screenshots/`
 - 已完成：P0–P8；难度/星级已按 30 关 × 200 次代理求解器标定
 - 已知外部验证缺口：真实手机、Safari/Firefox、5 人可用性、30 分钟浏览器长会话
@@ -57,7 +57,7 @@
 | M5 | `src/app/session.js`、`bootstrap.js` | 场景状态机、对局生命周期、弹窗、队列、生命恢复 |
 | M9/M10 | `src/app/rank.js`、`store.js`、`save-schema.js` | 排行榜客户端/降级、DS-1 存档、迁移、多标签页 |
 | M6 | `src/ui/layout.js`、`palette.js`、`animation.js`、`renderer.js` | 布局、配色/形状、CascadeStep 回放、Canvas 绘制 |
-| M7 | `src/ui/audio.js` | 5 类合成音效、背景铺底、静音、可见性暂停 |
+| M7 | `src/ui/audio.js` | 5 类 CC0 采样音效 + 合成包边、背景铺底、静音、可见性暂停 |
 | M8 | `src/ui/input.js` | 指针/触屏/键盘、0.3 格滑动、锤子瞄准 |
 | UI 装配 | `src/ui/app.js`、`format.js`、`web/` | 七个界面、HUD/弹窗、设置、排行榜、导入导出 |
 | 标定 | `scripts/calibrate.mjs`、`docs/calibration.json` | 30 关 × 200 次代理求解器、`starKeep` 回写 |
@@ -65,7 +65,7 @@
 
 验证：
 
-- `npm run check`：90 个必需文件 + 3 组基线标记。
+- `npm run check`：96 个必需文件 + 3 组基线标记。
 - `npm test`：155 个用例通过；覆盖率行 93.75% / 分支 82.98% / 函数 95.35%。
 - `npm run dev`：<http://127.0.0.1:5173>（可玩）。
 
@@ -96,7 +96,7 @@
 
 ```bash
 node -v          # 22+
-npm run check    # 90 files / 3 marker groups
+npm run check    # 96 files / 3 marker groups
 npm test         # 155 tests
 npm run dev      # http://127.0.0.1:5173
 ```
@@ -133,7 +133,7 @@ npm run dev      # http://127.0.0.1:5173
 ## 11. 接手前 30 分钟检查
 
 1. `git status` / `git log --oneline -10`；确认在 `develop` 或发布 tag。
-2. `npm run check`（90）和 `npm test`（155）。
+2. `npm run check`（96）和 `npm test`（155）。
 3. 读 `README.md`、`CONTRIBUTING.md`、`docs/roadmap.md`、`docs/user-guide.md`、`docs/baseline/README.md`。
 4. 打开 #10 或 release 页面；确认 v1.0.1 与已知限制。
 5. `npm run dev` 实际走一遍主流程：主菜单 → 选关 → 交换 → 结算/失败 → 排行榜 → 设置。
