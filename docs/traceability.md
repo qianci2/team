@@ -67,9 +67,9 @@
 | BR-02 段 1 数值 | `levels.js`/`levels.json` | `levels.test` | 已实现 |
 | BR-03 段 2 数值 | 同上 | `levels.test` | 已实现 |
 | BR-04 段 3 数值 | 同上，K-05 取整 | `levels.test` | 已实现 |
-| BR-05 难度验收 | 代理求解器未实现 | 无 | 待补 |
+| BR-05 难度验收 | `scripts/calibrate.mjs`，每关 200 次、6000 局 | 三段 98.7/97.6/84.1%，所有 Wilson 下限 ≥64.9% | 已完成 |
 | BR-06 冰层加权 | `run.js` `placeIce`、`ui/renderer.js` 冰层绘制 | `run.test` | 已实现 |
-| BR-07 星级 | `economy.js` `evaluateStars`，`starKeep` 预置 | `economy.test` | 部分（阈值待标定） |
+| BR-07 星级 | `economy.js` `evaluateStars`，标定后 `starKeep` | `economy.test`、`docs/calibration.json` | 已完成；星级 14.7/48.9/36.4%，最不利 2★ 45% |
 | BR-08 金币产出 | `economy.js` `settleCoins` | `economy.test` | 已实现 |
 | BR-09 生命 | `economy.js` | `economy.test` | 已实现 |
 | BR-10 特殊组合 | `board.js` `comboEffect` | `board.test` | 已实现 |
@@ -79,6 +79,6 @@
 - **NFR-05、NFR-12** 需要真实用户与 30 分钟长会话采样，P5 的自动验收不能替代。
 - **NFR-04** 只在 Chromium/Edge 实测；Safari/Firefox 与真实手机仍待 P7。
 - **NFR-13** 的自动对比度、键盘与焦点已覆盖，但仍欠人工逐页走查与色觉障碍者试用。
-- **TC-39/TC-40** 的代理求解器标定尚未执行；`starKeep` 仍是设计预置值。
+- TC-39/TC-40 已由 `scripts/calibrate.mjs` 完成并回写；真实设备/跨浏览器与 5 人可用性仍是外部验证缺口。
 - 真实排行榜服务未交付，FR-18/FR-21 只有客户端 + mock 证据；`/api/rank`、`/api/score` 的 404 是预期降级路径。
 - UI-6 作为排行榜页的个人面板实现（M5 场景集没有 `profile`），入口与信息完整，但不是独立场景。
