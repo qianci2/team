@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>星消乐 · 特效试验台</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #080b12;
+        --panel: rgba(17, 22, 34, 0.82);
+        --line: rgba(255, 255, 255, 0.12);
+        --text: #f4f1e8;
+        --muted: #9aa3b5;
+        --accent: #ffd28a;
+        --accent-2: #6fe7ff;
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+      }
+      canvas { display: block; width: 100vw; height: 100vh; touch-action: none; }
+      .top {
+        position: fixed;
+        inset: 18px 18px auto;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        pointer-events: none;
+      }
+      .copy {
+        padding: 14px 18px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: var(--panel);
+        backdrop-filter: blur(14px);
+        pointer-events: auto;
+      }
+      .eyebrow {
+        margin: 0 0 4px;
+        color: var(--accent);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.22em;
+      }
+      h1 { margin: 0; font-size: clamp(22px, 3vw, 34px); letter-spacing: -0.03em; }
+      .lede { margin: 6px 0 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+      .top a {
+        pointer-events: auto;
+        display: inline-flex;
+        min-height: 42px;
+        align-items: center;
+        padding: 0 14px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--panel);
+        color: var(--text);
+        text-decoration: none;
+        font-size: 13px;
+        backdrop-filter: blur(14px);
+      }
+      .chips {
+        position: fixed;
+        left: 50%;
+        bottom: 18px;
+        transform: translateX(-50%);
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+        width: min(920px, calc(100vw - 24px));
+        padding: 8px;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background: var(--panel);
+        backdrop-filter: blur(14px);
+      }
+      .chips button {
+        min-height: 42px;
+        padding: 0 14px;
+        border: 1px solid transparent;
+        border-radius: 13px;
+        background: transparent;
+        color: var(--muted);
+        font: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .chips button:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
+      .chips button[aria-pressed="true"] {
+        color: #1b160d;
+        background: var(--accent);
+      }
+      .hint {
+        position: fixed;
+        right: 18px;
+        bottom: 86px;
+        color: var(--muted);
+        font-size: 12px;
+        text-align: right;
+        pointer-events: none;
+        line-height: 1.7;
+      }
+      .hint strong { color: var(--text); }
+      @media (max-width: 700px) {
+        .top { inset: 10px 10px auto; }
+        .copy { padding: 10px 12px; border-radius: 14px; }
+        .lede { display: none; }
+        .top a { min-height: 38px; padding: 0 10px; font-size: 12px; }
+        .chips { bottom: 10px; gap: 4px; padding: 6px; }
+        .chips button { min-height: 38px; padding: 0 9px; font-size: 12px; }
+        .hint { display: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="fx" aria-label="特效试验台画布"></canvas>
+
+    <div class="top">
+      <div class="copy">
+        <p class="eyebrow">FX LAB · 6 EFFECTS</p>
+        <h1>特效试验台</h1>
+        <p class="lede">点击画布触发；数字键 1–6 切换；空格重放。全部是 WebGL fragment shader，无外部依赖。</p>
+      </div>
+      <a href="/">← 返回游戏</a>
+    </div>
+
+    <div class="hint">
+      <strong>点击</strong> 在指针处触发<br />
+      <strong>1–6</strong> 切换效果 · <strong>空格</strong> 重放
+    </div>
+
+    <nav class="chips" aria-label="特效列表">
+      <button type="button" data-mode="0" aria-pressed="true">01 冲击波</button>
+      <button type="button" data-mode="1" aria-pressed="false">02 棱镜</button>
+      <button type="button" data-mode="2" aria-pressed="false">03 漩涡</button>
+      <button type="button" data-mode="3" aria-pressed="false">04 冰晶</button>
+      <button type="button" data-mode="4" aria-pressed="false">05 新星</button>
+      <button type="button" data-mode="5" aria-pressed="false">06 电弧</button>
+    </nav>
+
+    <script type="module" src="/web/fx-demo.js"></script>
+  </body>
+</html>

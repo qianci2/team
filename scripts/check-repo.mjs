@@ -25,6 +25,7 @@ const REQUIRED_FILES = [
   "docs/calibration.json",
   "docs/contributions.md",
   "docs/demo.md",
+  "docs/fx-demo.md",
   "docs/levels.md",
   "docs/project-brief.md",
   "docs/release-notes-v1.0.0.md",
@@ -86,6 +87,8 @@ const REQUIRED_FILES = [
   "test/server.test.mjs",
   "test/ui.test.mjs",
   "web/app.js",
+  "web/fx-demo.html",
+  "web/fx-demo.js",
   "web/index.html",
   "web/style.css",
 ];
