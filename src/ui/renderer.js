@@ -309,10 +309,10 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
     );
     const color =
       spec.kind === "frost"
-        ? "#dff8ff"
+        ? "#9fe8ff"
         : spec.kind === "gravity"
           ? "#e4b5ef"
-          : tileStyle(tile?.kind)?.color ?? "#f5eddf";
+          : "#ffd28a";
     effects.trigger(spec.kind, {
       x: rect.centerX,
       y: rect.centerY,
