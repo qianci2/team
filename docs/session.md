@@ -41,7 +41,8 @@ playing → levelSelect/menu 只能通过结算弹窗动作
 | `setNickname` | `nickname` | 白名单校验；空串允许清空 |
 | `submitRank` / `loadRank` | — | 排行榜提交/拉取 |
 | `importSave` / `exportSave` | `text` / — | 存档导入/导出 |
-| `dialogAction` | `next`/`replay`/`retry`/`menu`/`close`/`refill` | 弹窗动作 |
+| `dialogAction` | `next`/`replay`/`retry`/`menu`/`exit`/`close`/`refill` | 弹窗动作 |
+| `game-menu` | — | 对局内打开退出确认；`exit` 返回主菜单、`close` 取消 |
 | `visibility` | `hidden` | 转给 M7 暂停/恢复音频 |
 
 动画期间（`inputLocked=true`）的 `move`/`item` 进入容量 2 的队列，超出丢最旧；动画完成或 2.4s 兜底后释放并依次重放（FR-25、FM-08）。队列中的意图在重放时重新校验。

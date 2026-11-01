@@ -7,7 +7,11 @@
 
 import { TILE_STYLES } from "./palette.js";
 
-const CHAPTER_NAMES = Object.freeze({ 1: "第一程", 2: "第二程", 3: "第三程" });
+const CHAPTER_NAMES = Object.freeze({
+  1: "第 1–5 关",
+  2: "第 6–15 关",
+  3: "第 16–30 关",
+});
 
 export function formatNumber(value) {
   const number = Number(value);
@@ -24,7 +28,7 @@ export function sumStars(stars) {
 }
 
 export function chapterName(segment) {
-  return CHAPTER_NAMES[segment] ?? `第 ${segment} 程`;
+  return CHAPTER_NAMES[segment] ?? `第 ${segment} 组`;
 }
 
 export function goalLabel(goal, cfg) {

@@ -28,6 +28,7 @@ const REQUIRED_FILES = [
   "docs/levels.md",
   "docs/project-brief.md",
   "docs/release-notes-v1.0.0.md",
+  "docs/release-notes-v1.0.1.md",
   "docs/roadmap.md",
   "docs/screenshots/README.md",
   "docs/session.md",
