@@ -2,16 +2,16 @@
    砂色纸面、陶土与苔色的色块、衬线标题、不规则圆角；无外部字体与图片。 */
 
 :root {
-  --dp-color-ground: #eee6d6;
-  --dp-color-surface: #f5eddf;
-  --dp-color-ink: #29251d;
-  --dp-color-primary: #35422d;
-  --dp-color-primary-hover: #42523a;
-  --dp-color-field: #694737;
-  --dp-color-art-accent: #ad7d62;
-  --dp-color-surface-muted: #ddd5c3;
-  --dp-color-highlight: #b9b28b;
-  --dp-color-ink-muted: #443b2f;
+  --dp-color-ground: #f7f1e6;
+  --dp-color-surface: #fffaf0;
+  --dp-color-ink: #241f18;
+  --dp-color-primary: #41553a;
+  --dp-color-primary-hover: #506647;
+  --dp-color-field: #825d47;
+  --dp-color-art-accent: #c08f6f;
+  --dp-color-surface-muted: #e8dfce;
+  --dp-color-highlight: #c9c49b;
+  --dp-color-ink-muted: #4b4134;
   --dp-color-line: rgba(41, 37, 29, 0.16);
   --dp-color-line-strong: rgba(41, 37, 29, 0.3);
   --dp-color-paper-light: #fbf6ec;
@@ -53,7 +53,10 @@ body {
   margin: 0;
   min-height: 100svh;
   background-color: var(--dp-color-ground);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.16'/%3E%3C/svg%3E");
+  background-image:
+    radial-gradient(circle at 12% 0%, rgba(255, 255, 255, 0.75), transparent 34%),
+    radial-gradient(circle at 88% 4%, rgba(201, 196, 155, 0.24), transparent 28%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.1'/%3E%3C/svg%3E");
   color: var(--dp-color-ink);
   font-family: var(--dp-typography-reading);
   font-size: var(--dp-typography-body);
@@ -1935,6 +1938,171 @@ body[data-scene="playing"] .site-foot {
 
   .level-grid {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+/* ---------- v1.1 可读性/导航/亮度修订 ---------- */
+
+.icon-sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+.icon {
+  width: 1em;
+  height: 1em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vertical-align: -0.12em;
+}
+
+.site-head {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+}
+
+.site-nav {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: 100%;
+  gap: 4px;
+  padding: 5px;
+  border: 1px solid var(--dp-color-line);
+  border-radius: 20px;
+  background: rgba(255, 250, 240, 0.9);
+  box-shadow: 0 6px 20px rgba(36, 31, 24, 0.06);
+  backdrop-filter: blur(10px);
+}
+
+.site-nav button {
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.site-nav button[aria-current="page"],
+.site-nav button.is-active {
+  background: var(--dp-color-primary);
+  color: var(--dp-color-surface);
+}
+
+.site-nav button:hover {
+  background: var(--dp-color-surface-muted);
+  border-bottom-color: transparent;
+}
+
+.clay-field {
+  background: #8a654d;
+}
+
+.moss-basin {
+  background: #4a6042;
+}
+
+.stat {
+  min-width: 104px;
+  padding: 8px 12px 9px;
+  border: 1px solid var(--dp-color-line);
+  border-radius: 16px 12px 15px 11px;
+  background: var(--dp-color-surface);
+}
+
+.stat-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--dp-color-ink-muted);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+.stat strong,
+.facts dd {
+  font-family: var(--dp-typography-reading);
+  font-weight: 700;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat strong {
+  font-size: clamp(30px, 3.2vw, 36px);
+}
+
+.stat-score {
+  border-color: rgba(130, 93, 71, 0.5);
+  background: #fff4e3;
+}
+
+.stat-score strong {
+  color: #613b26;
+  font-size: clamp(30px, 3.2vw, 36px);
+}
+
+.stat-stars strong {
+  font-family: var(--dp-typography-reading);
+  font-size: 22px;
+}
+
+.game-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  margin-bottom: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--dp-color-line-strong);
+  border-radius: 999px;
+  background: var(--dp-color-surface);
+  color: var(--dp-color-ink);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.game-menu-btn:hover {
+  background: var(--dp-color-surface-muted);
+}
+
+.item-mark .icon {
+  width: 24px;
+  height: 24px;
+}
+
+@media (max-width: 700px) {
+  .site-nav {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    width: 100%;
+    gap: 2px;
+  }
+
+  .site-nav button {
+    padding: 0 4px;
+    font-size: 14px;
+  }
+
+  .game-menu-btn {
+    margin-bottom: 6px;
+  }
+
+  .stat {
+    padding: 7px 10px 8px;
+  }
+
+  .stat strong {
+    font-size: 28px;
+  }
+
+  .stat-score strong {
+    font-size: 28px;
   }
 }
 

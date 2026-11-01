@@ -457,11 +457,34 @@ export function createSession({
     return true;
   }
 
+  function openGameMenu() {
+    if (scene !== "playing" || !run) return false;
+    dialog = {
+      id: "game-menu",
+      type: "confirm",
+      lines: [
+        line("当前关卡", `第 ${run.level} 关`),
+        line("提示", "退出后本局不保存，已完成的关卡进度不受影响。"),
+      ],
+      actions: ["exit", "close"],
+    };
+    emit({ type: "game:menu" });
+    return true;
+  }
+
   function handleDialogAction(action) {
     const current = dialog;
     if (!current) return false;
     if (action === "close") {
       dialog = null;
+      return true;
+    }
+    if (action === "exit") {
+      dialog = null;
+      run = null;
+      scene = "menu";
+      emit({ type: "scene:changed", scene });
+      presentation?.onScene?.("menu");
       return true;
     }
     if (action === "refill") {
@@ -497,6 +520,7 @@ export function createSession({
       return true;
     }
     if (intent.type === "scene") return toScene(intent.scene);
+    if (intent.type === "game-menu") return openGameMenu();
     if (intent.type === "startLevel") return startLevel(intent.level);
     if (intent.type === "move") return performMove(intent);
     if (intent.type === "item") return performItem(intent);

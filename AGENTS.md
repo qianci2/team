@@ -1,13 +1,13 @@
 # AGENTS.md — 《星消乐》最终项目接手说明
 
 > 给接手本仓库的 AI agent / 新 harness 的第一份文件。读完应能直接继续开发，不需要旧对话记忆。
-> 最后更新：2026-11-01（v1.0.0 发布）· 维护者：qianci2（组长）· P5 部分：54dxx
+> 最后更新：2026-11-01（v1.0.1 发布）· 维护者：qianci2（组长）· P5 部分：54dxx
 
 ## 0. 一句话现状
 
 - 仓库：<https://github.com/qianci2/team>（公开）
-- 发布：`v1.0.0`（2026-11-01）；`main` 为发布版本，`develop` 为集成分支
-- 测试：**151 个 `node:test` 用例**、仓库校验 81 个必需文件
+- 发布：`v1.0.1`（2026-11-01）；`main` 为发布版本，`develop` 为集成分支
+- 测试：**152 个 `node:test` 用例**、仓库校验 82 个必需文件
 - 浏览器：`npm run dev` 后打开 <http://127.0.0.1:5173> 即为可玩版本；验收记录见 `docs/ui.md`、截图见 `docs/screenshots/`
 - 已完成：P0–P8；难度/星级已按 30 关 × 200 次代理求解器标定
 - 已知外部验证缺口：真实手机、Safari/Firefox、5 人可用性、30 分钟浏览器长会话
@@ -35,10 +35,10 @@
 
 三人都是 repo collaborator。每人用自己的 GitHub 身份提交；不要代提交或伪造贡献。
 
-## 3. GitHub 状态（v1.0.0）
+## 3. GitHub 状态（v1.0.1）
 
-- `main` = `v1.0.0` 发布提交；`develop` = 集成分支。
-- 已合并 PR：#11 P0、#12–#14 P1–P3、#19 领域边界、#20 P4、#21 P6、#22 P7 测试基线、#23 P5、#24 P7 标定、#25 P8 发布。
+- `main` = `v1.0.1` 发布提交；`develop` = 集成分支。
+- 已合并 PR：#11 P0、#12–#14 P1–P3、#19 领域边界、#20 P4、#21 P6、#22 P7 测试基线、#23 P5、#24 P7 标定、#25 P8 发布、#26 v1.0.0 release。
 - P5 作者 54dxx 已通过 PR #23 合入，分支已删除。
 - 分支保护：`main`/`develop` 需要 `validate` + 1 评审；管理员可按应急路径合并。
 - CI：`.github/workflows/ci.yml` 跑 `npm run check` + `npm test`（不含 GUI 浏览器）。
@@ -65,8 +65,8 @@
 
 验证：
 
-- `npm run check`：81 个必需文件 + 3 组基线标记。
-- `npm test`：151 个用例通过；覆盖率行 93.75% / 分支 82.98% / 函数 95.35%。
+- `npm run check`：82 个必需文件 + 3 组基线标记。
+- `npm test`：152 个用例通过；覆盖率行 93.75% / 分支 82.98% / 函数 95.35%。
 - `npm run dev`：<http://127.0.0.1:5173>（可玩）。
 
 ## 5. 已解决的 follow-up
@@ -78,7 +78,7 @@
 
 ## 6. 后续维护
 
-- v1.0.0 已发布；P5 已由 PR #23 合入，`docs/ui.md` 为界面验收记录。
+- v1.0.1 已发布；P5 已由 PR #23 合入，`docs/ui.md` 为界面验收记录。
 - 难度/星级已按 6000 局标定，见 `docs/calibration.json`；改动关卡数值后必须重跑 `npm run calibrate` 并回写。
 - 外部验证缺口：真实手机、Safari/Firefox、5 人可用性、30 分钟浏览器长会话；不要伪造为已通过。
 - 排行榜仍只有客户端 + mock + 降级；不要声称已部署真实 SQLite 服务。
@@ -96,8 +96,8 @@
 
 ```bash
 node -v          # 22+
-npm run check    # 81 files / 3 marker groups
-npm test         # 151 tests
+npm run check    # 82 files / 3 marker groups
+npm test         # 152 tests
 npm run dev      # http://127.0.0.1:5173
 ```
 
@@ -133,9 +133,9 @@ npm run dev      # http://127.0.0.1:5173
 ## 11. 接手前 30 分钟检查
 
 1. `git status` / `git log --oneline -10`；确认在 `develop` 或发布 tag。
-2. `npm run check`（81）和 `npm test`（151）。
+2. `npm run check`（82）和 `npm test`（152）。
 3. 读 `README.md`、`CONTRIBUTING.md`、`docs/roadmap.md`、`docs/user-guide.md`、`docs/baseline/README.md`。
-4. 打开 #10 或 release 页面；确认 v1.0.0 与已知限制。
+4. 打开 #10 或 release 页面；确认 v1.0.1 与已知限制。
 5. `npm run dev` 实际走一遍主流程：主菜单 → 选关 → 交换 → 结算/失败 → 排行榜 → 设置。
 6. `git remote -v`；测试 `git ls-remote`；失败则用 GitHub API（见 `HANDOFF-LOCAL.md`）。
 

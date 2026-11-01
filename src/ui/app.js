@@ -24,14 +24,15 @@ const ACTION_LABELS = Object.freeze({
   replay: "再玩一次",
   retry: "重试",
   menu: "返回主菜单",
+  exit: "退出本局",
   refill: "用 200 金币补满",
-  close: "知道了",
+  close: "取消",
 });
 const DIALOG_TEXT = Object.freeze({
-  win: { kicker: "对局结算", title: "这一关，收好了。" },
-  fail: { kicker: "目标未完成", title: "还差一点。" },
-  info: { kicker: "提示", title: "请留意" },
-  confirm: { kicker: "确认", title: "确认操作" },
+  win: { kicker: "本关结算", title: "通关" },
+  fail: { kicker: "目标未完成", title: "本关失败" },
+  info: { kicker: "提示", title: "提示" },
+  confirm: { kicker: "退出对局", title: "退出本局？" },
 });
 const TUTORIAL_KEY = "gemz.ui.tutorialDismissed";
 
@@ -939,6 +940,9 @@ export function createUi({
         act({ type: "setMuted", muted: !view.muted });
         break;
       }
+      case "game-menu":
+        act({ type: "game-menu" });
+        break;
       case "help":
         openHelp();
         break;

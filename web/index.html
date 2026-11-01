@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="light" />
-    <meta name="theme-color" content="#eee6d6" />
+    <meta name="theme-color" content="#f7f1e6" />
     <meta
       name="description"
       content="星消乐（Gemz）：8×8 棋盘、5 种星石、30 个关卡的轻量级益智消除网页游戏。"
@@ -17,6 +17,17 @@
     <link rel="stylesheet" href="/web/style.css" />
   </head>
   <body>
+    <svg class="icon-sprite" aria-hidden="true" focusable="false">
+      <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+      <symbol id="i-score" viewBox="0 0 24 24"><path d="M5 19V9m7 10V5m7 14v-7"/><path d="M3 19h18"/></symbol>
+      <symbol id="i-moves" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.7"/><path d="M4 4v4h4"/><path d="M12 8v4l3 2"/></symbol>
+      <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.4l6.1-.9Z"/></symbol>
+      <symbol id="i-ice" viewBox="0 0 24 24"><path d="M12 2v20M4 6l16 12M20 6 4 18"/><path d="m9 4 3 3 3-3M9 20l3-3 3 3"/></symbol>
+      <symbol id="i-shuffle" viewBox="0 0 24 24"><path d="M4 7h3l10 10h3M4 17h3L17 7h3"/><path d="m18 4 2 3-2 3M18 14l2 3-2 3"/></symbol>
+      <symbol id="i-hammer" viewBox="0 0 24 24"><path d="m14 5 5 5-3 3-5-5Z"/><path d="m11 8-6 6 5 5 6-6"/><path d="m4 20 3-3"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M9 9.5h6M9 14.5h6M12 8v8"/></symbol>
+    </svg>
     <a class="skip-link" href="#main">跳到主要内容</a>
 
     <div class="app">
@@ -42,13 +53,13 @@
 
           <div class="opening">
             <div class="opening-copy">
-              <p class="eyebrow">8×8 棋盘 · 5 种星石 · 30 个关卡</p>
+              <p class="eyebrow">30 个关卡 · 8×8 棋盘 · 5 种星石</p>
               <h1 id="menu-title" tabindex="-1">
-                把散落的星石，<em>拢成一片安静的光。</em>
+                交换星石，<em>完成关卡目标。</em>
               </h1>
               <p class="lede">
-                交换相邻的星石，三个同色连成一线就会消除。进度留在这台设备上，
-                没有网络也能完成单机流程。
+                点击或滑动交换相邻星石，三个同色连成一线即可消除。
+                在步数用完前完成本关全部目标即可通关。
               </p>
               <div class="opening-actions">
                 <button type="button" class="btn btn-primary" id="continue-level" data-action="continue">
@@ -101,9 +112,9 @@
 
           <section class="clay-field" aria-labelledby="goals-title">
             <div>
-              <p class="eyebrow eyebrow-light">每一关，只盯三件小事</p>
-              <h2 id="goals-title">目标不多，够清楚就好。</h2>
-              <p class="field-note">关卡会组合其中一到三种目标。达成全部目标即通关，步数用完则失败。</p>
+              <p class="eyebrow eyebrow-light">通关要求</p>
+              <h2 id="goals-title">完成全部目标即可通关。</h2>
+              <p class="field-note">每关有一到三个目标。步数用完时仍有目标未完成，则本局失败。</p>
             </div>
             <ul class="feature-list">
               <li>
@@ -123,8 +134,8 @@
 
           <section class="moss-basin" aria-labelledby="steps-title">
             <div class="basin-head">
-              <p class="eyebrow eyebrow-light">第一次玩</p>
-              <h2 id="steps-title">三个动作，就能开始。</h2>
+              <p class="eyebrow eyebrow-light">玩法说明</p>
+              <h2 id="steps-title">四步开始游戏。</h2>
             </div>
             <ol class="steps">
               <li>
@@ -155,7 +166,7 @@
           <header class="screen-head">
             <button type="button" class="btn btn-quiet btn-back" data-nav="menu">← 返回主菜单</button>
             <p class="eyebrow">UI-2 · 关卡选择</p>
-            <h1 id="levels-title" tabindex="-1">三十级，慢慢来。</h1>
+            <h1 id="levels-title" tabindex="-1">选择关卡</h1>
             <p class="lede">每关的目标和步数都不同。已解锁的关卡可以反复挑战，记录最高星级与最高分。</p>
             <dl class="facts facts-inline" aria-label="当前资源">
               <div><dt>生命</dt><dd id="level-lives">5 / 5</dd></div>
@@ -170,19 +181,23 @@
         <section class="scene scene-play" data-scene="playing" aria-labelledby="play-title" hidden>
           <div class="game-top">
             <div class="game-heading">
+              <button type="button" class="game-menu-btn" data-action="game-menu">
+                <svg class="icon" aria-hidden="true"><use href="#i-menu"></use></svg>
+                菜单
+              </button>
               <p class="eyebrow" id="play-segment">第一程</p>
               <h1 id="play-title" tabindex="-1">第 1 关</h1>
             </div>
             <div class="stat stat-score">
-              <span class="stat-label">得分</span>
+              <span class="stat-label"><svg class="icon" aria-hidden="true"><use href="#i-score"></use></svg>得分</span>
               <strong id="play-score">0</strong>
             </div>
             <div class="stat">
-              <span class="stat-label">剩余步数</span>
+              <span class="stat-label"><svg class="icon" aria-hidden="true"><use href="#i-moves"></use></svg>剩余步数</span>
               <strong id="play-moves">20</strong>
             </div>
             <div class="stat stat-stars">
-              <span class="stat-label">当前完成可得</span>
+              <span class="stat-label"><svg class="icon" aria-hidden="true"><use href="#i-star"></use></svg>当前完成可得</span>
               <strong id="play-stars" aria-label="1 星">★☆☆</strong>
               <span class="stat-note" id="play-star-text">剩 7 步得 2★ · 剩 12 步得 3★</span>
             </div>
@@ -219,19 +234,19 @@
               <h2 id="items-title">道具</h2>
               <div class="item-list">
                 <button type="button" class="item-btn" data-item="shuffle">
-                  <span class="item-mark" aria-hidden="true">↻</span>
+                  <span class="item-mark" aria-hidden="true"><svg class="icon"><use href="#i-shuffle"></use></svg></span>
                   <span class="item-name">重排</span>
                   <span class="item-count" data-count="shuffle">1</span>
                   <span class="item-note" data-note="shuffle">重排全场</span>
                 </button>
                 <button type="button" class="item-btn" data-item="hammer">
-                  <span class="item-mark" aria-hidden="true">⌁</span>
+                  <span class="item-mark" aria-hidden="true"><svg class="icon"><use href="#i-hammer"></use></svg></span>
                   <span class="item-name">锤子</span>
                   <span class="item-count" data-count="hammer">1</span>
                   <span class="item-note" data-note="hammer">敲碎一格</span>
                 </button>
                 <button type="button" class="item-btn" data-item="plus5">
-                  <span class="item-mark" aria-hidden="true">+5</span>
+                  <span class="item-mark" aria-hidden="true"><svg class="icon"><use href="#i-plus"></use></svg></span>
                   <span class="item-name">加步</span>
                   <span class="item-count" data-count="plus5">1</span>
                   <span class="item-note" data-note="plus5">+5 步</span>
@@ -252,7 +267,7 @@
           <header class="screen-head">
             <button type="button" class="btn btn-quiet btn-back" data-nav="menu">← 返回主菜单</button>
             <p class="eyebrow">UI-5 · 排行榜</p>
-            <h1 id="rank-title" tabindex="-1">榜上有人，桌上也有你。</h1>
+            <h1 id="rank-title" tabindex="-1">排行榜</h1>
             <p class="lede">
               前 100 名按总积分排序。排行榜不可用时自动显示本地模拟数据，单机游玩不受影响。
             </p>
@@ -276,7 +291,7 @@
 
             <aside class="panel profile-panel" id="profile-panel" aria-labelledby="profile-title">
               <p class="eyebrow">UI-6 · 个人主页</p>
-              <h2 id="profile-title" tabindex="-1">我的桌面</h2>
+              <h2 id="profile-title" tabindex="-1">个人主页</h2>
               <dl class="profile-stats">
                 <div><dt>昵称</dt><dd id="profile-name">未设置</dd></div>
                 <div><dt>总积分</dt><dd id="profile-total">0</dd></div>
@@ -317,7 +332,7 @@
           <header class="screen-head">
             <button type="button" class="btn btn-quiet btn-back" data-nav="menu">← 返回主菜单</button>
             <p class="eyebrow">UI-7 · 设置</p>
-            <h1 id="settings-title" tabindex="-1">把桌面调成顺手的样子。</h1>
+            <h1 id="settings-title" tabindex="-1">设置</h1>
             <p class="lede">设置会立即保存。音频在第一次操作后才会开始，切到后台会自动暂停。</p>
           </header>
 
@@ -425,8 +440,8 @@
         aria-labelledby="dialog-title"
         aria-describedby="dialog-lines"
       >
-        <p class="eyebrow" id="dialog-kicker">对局结算</p>
-        <h2 id="dialog-title">这一关，收好了。</h2>
+        <p class="eyebrow" id="dialog-kicker">本关结算</p>
+        <h2 id="dialog-title">通关</h2>
         <p class="dialog-stars" id="dialog-stars" hidden></p>
         <dl class="dialog-lines" id="dialog-lines"></dl>
         <div class="dialog-actions" id="dialog-actions"></div>

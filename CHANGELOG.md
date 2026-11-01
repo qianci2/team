@@ -2,6 +2,22 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.0.1] - 2026-11-01
+
+### Changed
+
+- 主菜单导航从右上角小链接改为整行 4 等分导航；对局新增“菜单”，可确认退出本局返回主菜单。
+- 去掉模板化/抒情文案，改为“交换星石，完成关卡目标”“通关要求”“玩法说明”等直接说明。
+- HUD 得分/步数改为独立卡片与统一无衬线等宽数字；得分用暖色底强调，不再一大一小。
+- 冰层改为浅蓝冰面 + 深蓝描边 + 六角雪花 + 双层“2”角标，提升可辨识度。
+- 炸弹/彩虹增加脉冲光环；生成/触发时增加扩散冲击环、闪白与轻微震动（减少动态效果下关闭）。
+- 新增菜单、得分、步数、星、冰、重排、锤子、加步等内联 SVG 图标。
+- 整体底色、纸面与陶土/苔色块提亮，正文与数字对比度提高。
+
+### Validation
+
+- `npm test`：152 个通过，0 失败。
+
 ## [1.0.0] - 2026-11-01
 
 ### Added
@@ -49,5 +65,6 @@
 - 需求 v2.1 与设计 v1.0 基线文档，以及 K-01~K-04 修正记录。
 - 仓库校验脚本与 Node 单元测试；GitHub Actions CI。
 
+[1.0.1]: https://github.com/qianci2/team/releases/tag/v1.0.1
 [1.0.0]: https://github.com/qianci2/team/releases/tag/v1.0.0
 [0.1.0]: https://github.com/qianci2/team/releases/tag/v0.1.0
