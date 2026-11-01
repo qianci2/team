@@ -26,6 +26,7 @@ const REQUIRED_FILES = [
   "docs/contributions.md",
   "docs/demo.md",
   "docs/fx-demo.md",
+  "docs/fx-lab.md",
   "docs/levels.md",
   "docs/project-brief.md",
   "docs/release-notes-v1.0.0.md",
@@ -89,6 +90,8 @@ const REQUIRED_FILES = [
   "web/app.js",
   "web/fx-demo.html",
   "web/fx-demo.js",
+  "web/fx-lab.html",
+  "web/fx-lab.js",
   "web/index.html",
   "web/style.css",
 ];
