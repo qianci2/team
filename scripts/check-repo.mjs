@@ -132,6 +132,12 @@ export function checkRepo(root = ROOT) {
     if (statSync(full).isFile() && statSync(full).size === 0) {
       errors.push(`文件为空：${rel}`);
     }
+    if (statSync(full).isFile()) {
+      const bytes = readFileSync(full);
+      if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
+        errors.push(`文件含 UTF-8 BOM：${rel}`);
+      }
+    }
   }
 
   for (const { file, markers } of BASELINE_MARKERS) {

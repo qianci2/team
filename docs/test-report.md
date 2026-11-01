@@ -1,4 +1,4 @@
-﻿# 测试与验收报告（P7）
+# 测试与验收报告（P7）
 
 > 生成日期：2026-10-26，P7 标定更新：2026-11-01 · 维护者：qianci2（组长）· P5 验收补充：54dxx
 > 环境：Windows 10 x64 · Node.js v22.19.0 / v22.23.2 · Microsoft Edge（headless Chromium）· 无运行时依赖
