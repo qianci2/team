@@ -1,6 +1,6 @@
 {
   "name": "gemz",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "星消乐：轻量级益智消除类网页游戏（课程团队项目）",
