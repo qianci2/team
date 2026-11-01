@@ -2,7 +2,7 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [1.0.0] - 2026-11-01
 
 ### Added
 
@@ -18,16 +18,27 @@
 - P5 无障碍与验收：对比度审计、焦点管理与弹窗焦点陷阱、减少动态效果、桌面/窄屏截图与无头浏览器验收脚本记录。
 - P6 会话：M5 场景状态机、对局生命周期、弹窗、输入队列、生命恢复与异常路径。
 - P7 测试基线：覆盖率与领域微基准脚本、TC-01~TC-42 映射、实现追溯矩阵。
+- P7 难度/星级标定：`scripts/calibrate.mjs` 每关 200 次、共 6000 局；`docs/calibration.json`；`starKeep` 回写 30 关配置与设计 §7.3.2。
+- P8 交付：`docs/contributions.md`、`docs/user-guide.md`、`docs/demo.md`、README、测试报告与追溯矩阵收口。
 
 ### Changed
 
 - `presentation.play(events, meta)` 增加只读 `meta`，向表现层透传本步交换/道具信息，保证连锁动画从正确棋盘开始。
-- README、路线图与测试报告更新为 P0–P6 已完成、P7 进行中；新增 `docs/ui.md` 与截图索引。
+- README、路线图与测试报告更新为 P0–P8 已完成、v1.0.0。
+- 版本号从 `0.1.0` 提升到 `1.0.0`。
 
-### Planned
+### Validation
 
-- P7 剩余项：难度/星级代理求解器标定、真实设备与跨浏览器性能、5 人可用性测试
-- P8 文档、演示与最终交付
+- `npm run check`：77 个必需文件、3 组基线标记。
+- `npm test`：151 个通过，0 失败；覆盖率行 93.75% / 分支 82.98% / 函数 95.35%。
+- 三段难度通过率 98.7% / 97.6% / 84.1%；所有关卡 Wilson 下限 ≥64.9%；通关样本星级 1★14.7% / 2★48.9% / 3★36.4%。
+
+### Known limitations
+
+- 真实手机、Safari/Firefox、5 人可用性与 30 分钟浏览器长会话未在本机执行；只在 Windows + headless Edge 验收。
+- 排行榜只有客户端 + mock 契约，未部署真实 SQLite 服务。
+- I-22 的 16ms 合并写未实现；`gemz_diag_config` 尚未接入。
+- UI-6 个人主页是排行榜页内的面板，不是独立场景。
 
 ## [0.1.0] - 2026-10-19
 
@@ -38,5 +49,5 @@
 - 需求 v2.1 与设计 v1.0 基线文档，以及 K-01~K-04 修正记录。
 - 仓库校验脚本与 Node 单元测试；GitHub Actions CI。
 
-[Unreleased]: https://github.com/qianci2/team/compare/v0.1.0...HEAD
+[1.0.0]: https://github.com/qianci2/team/releases/tag/v1.0.0
 [0.1.0]: https://github.com/qianci2/team/releases/tag/v0.1.0

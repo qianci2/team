@@ -23,8 +23,11 @@ const REQUIRED_FILES = [
   "docs/baseline/02-design-v1.0.md",
   "docs/baseline/README.md",
   "docs/calibration.json",
+  "docs/contributions.md",
+  "docs/demo.md",
   "docs/levels.md",
   "docs/project-brief.md",
+  "docs/release-notes-v1.0.0.md",
   "docs/roadmap.md",
   "docs/screenshots/README.md",
   "docs/session.md",
@@ -32,6 +35,7 @@ const REQUIRED_FILES = [
   "docs/test-report.md",
   "docs/traceability.md",
   "docs/ui.md",
+  "docs/user-guide.md",
   "package.json",
   "scripts/bench.mjs",
   "scripts/calibrate.mjs",
@@ -127,6 +131,12 @@ export function checkRepo(root = ROOT) {
     }
     if (statSync(full).isFile() && statSync(full).size === 0) {
       errors.push(`文件为空：${rel}`);
+    }
+    if (statSync(full).isFile()) {
+      const bytes = readFileSync(full);
+      if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
+        errors.push(`文件含 UTF-8 BOM：${rel}`);
+      }
     }
   }
 
