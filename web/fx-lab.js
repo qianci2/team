@@ -282,13 +282,13 @@ function spawnPetals(x, y, color, light, count) {
       vy: Math.sin(angle) * speed - rand(0, 60),
       age: 0,
       life: rand(0.7, 1.4),
-      length: rand(42, 112),
-      width: rand(9, 24),
+      length: rand(30, 82),
+      width: rand(5, 14),
       rotation: angle + rand(-0.5, 0.5),
       spin: rand(-4, 4),
       color,
       light,
-      alpha: rand(0.5, 0.95),
+      alpha: rand(0.22, 0.62),
     });
   }
 }
@@ -318,54 +318,29 @@ function addCrack(x, y, angle, length, width, depth, color) {
   }
 }
 
-function makeRibbon(color, start, end) {
-  const points = [];
-  const mx = (start[0] + end[0]) / 2 + rand(-160, 160);
-  const my = (start[1] + end[1]) / 2 + rand(-160, 160);
-  for (let i = 0; i <= 64; i += 1) {
-    const t = i / 64;
-    const inv = 1 - t;
-    const x = inv * inv * start[0] + 2 * inv * t * mx + t * t * end[0];
-    const y = inv * inv * start[1] + 2 * inv * t * my + t * t * end[1];
-    points.push([x, y + Math.sin(t * 12 + rand(-0.3, 0.3)) * 14 * Math.sin(t * Math.PI)]);
-  }
-  return { points, color, progress: 0, speed: rand(1.1, 1.7), width: rand(8, 18) };
-}
-
-function edgePoint() {
-  const side = Math.floor(rand(0, 4));
-  const left = layout.left;
-  const top = layout.top;
-  const size = layout.size;
-  if (side === 0) return [rand(left, left + size), top - 30];
-  if (side === 1) return [left + size + 30, rand(top, top + size)];
-  if (side === 2) return [rand(left, left + size), top + size + 30];
-  return [left - 30, rand(top, top + size)];
-}
-
 function start(kind, row = 3, col = 3) {
   const [x, y] = cellCenter(row, col);
   const gem = GEMS[board[row][col]];
   fx = {
     kind, t: 0, x, y, row, col,
     color: gem.color, light: gem.light,
-    sparks: [], smoke: [], shards: [], petals: [], rings: [], cracks: [], ribbons: [], orbs: [],
+    sparks: [], smoke: [], shards: [], petals: [], rings: [], cracks: [], orbs: [],
     flash: 0, burst: false, shake: 0,
   };
   lastTrigger = performance.now();
 
   if (kind === 0) {
     for (const source of GEMS) {
-      spawnPetals(x, y, source.color, source.light, 6);
+      spawnPetals(x, y, source.color, source.light, 10);
     }
-    spawnSpark(x, y, gem.light, 36, 260, 2.2);
-    spawnSpark(x, y, gem.color, 64, 220, 3.2);
-    spawnSmoke(x, y, "60, 40, 74", 30, 150, 45);
-    spawnShards(x, y, gem.color, 24, layout.cell * 0.18);
-    spawnRing(x, y, gem.light, layout.cell * 4.6, 10);
-    spawnRing(x, y, gem.color, layout.cell * 2.8, 6);
-    fx.flash = 0.55;
-    fx.shake = 9;
+    spawnSpark(x, y, gem.light, 90, 280, 1.7);
+    spawnSpark(x, y, gem.color, 120, 230, 2.3);
+    spawnSmoke(x, y, "60, 40, 74", 36, 130, 40);
+    spawnShards(x, y, gem.color, 56, layout.cell * 0.13);
+    spawnRing(x, y, gem.light, layout.cell * 4.6, 8);
+    spawnRing(x, y, gem.color, layout.cell * 2.8, 5);
+    fx.flash = 0.4;
+    fx.shake = 7;
   } else if (kind === 1) {
     addCrack(x, y, rand(0, TAU), layout.cell * 3.4, 7, 1, "rgba(235,250,255,.95)");
     for (let i = 0; i < 7; i += 1) {
@@ -379,58 +354,44 @@ function start(kind, row = 3, col = 3) {
         "rgba(220,245,255,.9)",
       );
     }
-    spawnShards(x, y, "rgba(195,235,255,1)", 44, layout.cell * 0.32);
-    spawnSpark(x, y, "#effcff", 46, 150, 2);
-    spawnSmoke(x, y, "90, 160, 200", 32, 130, 18);
-    spawnRing(x, y, "#d8f6ff", layout.cell * 3.4, 8);
-    fx.flash = 0.4;
+    spawnShards(x, y, "rgba(195,235,255,1)", 96, layout.cell * 0.21);
+    spawnSpark(x, y, "#effcff", 120, 160, 1.7);
+    spawnSmoke(x, y, "90, 160, 200", 40, 120, 18);
+    spawnRing(x, y, "#d8f6ff", layout.cell * 3.4, 6);
+    fx.flash = 0.3;
     fx.shake = 3;
-  } else if (kind === 2) {
-    const startPoint = edgePoint();
-    for (const g of GEMS) {
-      fx.ribbons.push(makeRibbon(g.color, startPoint, [x, y]));
-    }
-    fx.ribbons.push(makeRibbon(gem.light, edgePoint(), [x, y]));
-    spawnSmoke(x, y, "80, 60, 110", 18, 90, 18);
-    fx.flash = 0.25;
   } else {
-    for (let i = 0; i < 56; i += 1) {
+    for (let i = 0; i < 120; i += 1) {
       const angle = rand(0, TAU);
-      const radius = rand(layout.cell * 1.2, layout.size * 0.72);
+      const radius = rand(layout.cell * 2.4, layout.size * 0.56);
       const source = GEMS[Math.floor(rand(0, GEMS.length))];
       fx.orbs.push({
         angle,
         radius,
         startRadius: radius,
-        speed: rand(2.2, 5.2),
-        size: rand(layout.cell * 0.08, layout.cell * 0.2),
+        speed: rand(3.4, 7.8),
+        size: rand(1.1, 4.2),
         color: source.color,
         light: source.light,
         trail: [],
       });
     }
-    spawnSmoke(x, y, "38, 28, 58", 20, 130, 20);
-    fx.flash = 0.2;
+    spawnSmoke(x, y, "38, 28, 58", 30, 120, 24);
+    spawnRing(x, y, gem.light, layout.cell * 3.6, 6);
+    fx.flash = 0.22;
+    fx.shake = 3;
   }
 }
 
-function burst(kind) {
+function burst() {
   if (!fx) return;
-  if (kind === 2) {
-    for (const gem of GEMS) spawnSpark(fx.x, fx.y, gem.color, 26, 300, 3.2);
-    spawnSmoke(fx.x, fx.y, "92, 60, 120", 28, 130, 35);
-    spawnRing(fx.x, fx.y, fx.light, layout.cell * 4.4, 12);
-    fx.flash = 0.85;
-    fx.shake = 7;
-  } else if (kind === 3) {
-    spawnSpark(fx.x, fx.y, fx.light, 120, 360, 3.6);
-    for (const gem of GEMS) spawnSpark(fx.x, fx.y, gem.color, 18, 240, 3.2);
-    spawnShards(fx.x, fx.y, fx.color, 26, layout.cell * 0.18);
-    spawnSmoke(fx.x, fx.y, "42, 30, 66", 26, 125, 32);
-    spawnRing(fx.x, fx.y, fx.light, layout.cell * 5.4, 16);
-    fx.flash = 1;
-    fx.shake = 9;
-  }
+  spawnSpark(fx.x, fx.y, fx.light, 220, 380, 1.9);
+  for (const gem of GEMS) spawnSpark(fx.x, fx.y, gem.color, 40, 260, 2.1);
+  spawnShards(fx.x, fx.y, fx.color, 52, layout.cell * 0.13);
+  spawnSmoke(fx.x, fx.y, "42, 30, 66", 34, 120, 32);
+  spawnRing(fx.x, fx.y, fx.light, layout.cell * 5.4, 12);
+  fx.flash = 0.75;
+  fx.shake = 8;
 }
 
 function update(dt) {
@@ -475,24 +436,15 @@ function update(dt) {
   for (const c of fx.cracks) c.age += dt;
 
   if (fx.kind === 2) {
-    for (const ribbon of fx.ribbons) {
-      ribbon.progress = Math.min(1, ribbon.progress + dt * ribbon.speed);
-    }
-    if (!fx.burst && fx.t > 0.78) {
-      fx.burst = true;
-      burst(2);
-    }
-  }
-  if (fx.kind === 3) {
     for (const orb of fx.orbs) {
       orb.trail.push([orb.x ?? fx.x, orb.y ?? fx.y]);
-      if (orb.trail.length > 7) orb.trail.shift();
+      if (orb.trail.length > 8) orb.trail.shift();
       orb.angle += orb.speed * dt;
-      orb.radius *= Math.pow(0.1, dt);
+      orb.radius *= Math.pow(0.035, dt);
     }
-    if (!fx.burst && fx.t > 1.05) {
+    if (!fx.burst && fx.t > 0.65) {
       fx.burst = true;
-      burst(3);
+      burst();
     }
   }
 
@@ -569,14 +521,14 @@ function drawShards() {
     ctx.save();
     ctx.translate(s.x, s.y);
     ctx.rotate(s.rotation);
-    ctx.globalAlpha = alpha * 0.75;
+    ctx.globalAlpha = alpha * 0.5;
     ctx.beginPath();
     s.points.forEach(([x, y], index) => (index === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
     ctx.closePath();
     ctx.fillStyle = s.color;
     ctx.fill();
-    ctx.strokeStyle = "rgba(255,255,255,.65)";
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(255,255,255,.32)";
+    ctx.lineWidth = 0.8;
     ctx.stroke();
     ctx.restore();
   }
@@ -642,30 +594,12 @@ function drawCracks() {
   ctx.restore();
 }
 
-function drawRibbons() {
-  ctx.save();
-  ctx.globalCompositeOperation = "lighter";
-  for (const ribbon of fx.ribbons) {
-    const count = Math.floor(ribbon.points.length * ribbon.progress);
-    for (let i = 0; i < count; i += 1) {
-      const [x, y] = ribbon.points[i];
-      const taper = Math.sin((i / count) * Math.PI);
-      ctx.globalAlpha = 0.12 + taper * 0.55;
-      ctx.fillStyle = ribbon.color;
-      ctx.beginPath();
-      ctx.arc(x, y, ribbon.width * 0.18 + taper * ribbon.width * 0.4, 0, TAU);
-      ctx.fill();
-    }
-  }
-  ctx.restore();
-}
-
 function drawOrbs() {
   ctx.save();
   ctx.globalCompositeOperation = "lighter";
   for (const orb of fx.orbs) {
-    const p = clamp(fx.t / 1.05, 0, 1);
-    const radius = orb.startRadius * (1 - p) ** 1.7;
+    const p = clamp(fx.t / 0.65, 0, 1);
+    const radius = orb.startRadius * (1 - p) ** 0.9;
     const angle = orb.angle;
     orb.x = fx.x + Math.cos(angle) * radius;
     orb.y = fx.y + Math.sin(angle) * radius * 0.72;
@@ -713,7 +647,6 @@ function render(time) {
   if (fx) {
     drawSmoke();
     drawRings();
-    drawRibbons();
     drawCracks();
     drawOrbs();
     drawPetals();
@@ -758,7 +691,7 @@ autoButton.addEventListener("click", () => {
   autoButton.setAttribute("aria-pressed", String(auto));
 });
 globalThis.addEventListener("keydown", (event) => {
-  if (event.key >= "1" && event.key <= "4") setMode(Number(event.key) - 1);
+  if (event.key >= "1" && event.key <= "3") setMode(Number(event.key) - 1);
   if (event.code === "Space") {
     event.preventDefault();
     const [row, col] = fx ? [fx.row, fx.col] : [3, 3];
