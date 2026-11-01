@@ -8,7 +8,12 @@
  */
 
 const canvas = document.querySelector("#lab");
-const ctx = canvas.getContext("2d");
+const mainCtx = canvas.getContext("2d");
+const fxCanvas = document.createElement("canvas");
+const fxCtx = fxCanvas.getContext("2d");
+const bloomCanvas = document.createElement("canvas");
+const bloomCtx = bloomCanvas.getContext("2d");
+let ctx = mainCtx;
 const autoButton = document.querySelector("#auto");
 const modeButtons = Array.from(document.querySelectorAll("[data-mode]"));
 
@@ -42,9 +47,13 @@ function resize() {
   dpr = Math.min(2, globalThis.devicePixelRatio || 1);
   width = globalThis.innerWidth;
   height = globalThis.innerHeight;
-  canvas.width = Math.round(width * dpr);
-  canvas.height = Math.round(height * dpr);
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  for (const surface of [canvas, fxCanvas, bloomCanvas]) {
+    surface.width = Math.round(width * dpr);
+    surface.height = Math.round(height * dpr);
+  }
+  for (const context of [mainCtx, fxCtx, bloomCtx]) {
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
 
   const size = Math.min(width * 0.84, height * 0.62);
   const gap = Math.max(5, size * 0.012);
@@ -636,24 +645,52 @@ function drawFlash() {
 }
 
 function render(time) {
+  ctx = mainCtx;
   ctx.clearRect(0, 0, width, height);
   drawBackground(time, fx ? 1 : 0);
 
-  ctx.save();
-  if (fx && fx.shake > 0) {
-    ctx.translate(rand(-fx.shake, fx.shake), rand(-fx.shake, fx.shake));
-  }
-  drawBoard(time, fx ? 0.48 : 1);
   if (fx) {
-    drawSmoke();
-    drawRings();
-    drawCracks();
-    drawOrbs();
-    drawPetals();
-    drawShards();
-    drawSparks();
+    // 效果先画到独立图层，再做一次模糊 bloom；避免把棋盘一起糊掉。
+    ctx = fxCtx;
+    ctx.clearRect(0, 0, width, height);
+    csave(() => {
+      drawSmoke();
+      drawRings();
+      drawCracks();
+      drawOrbs();
+      drawPetals();
+      drawShards();
+      drawSparks();
+    });
+
+    ctx = mainCtx;
+    ctx.save();
+    if (fx.shake > 0) {
+      ctx.translate(rand(-fx.shake, fx.shake), rand(-fx.shake, fx.shake));
+    }
+    drawBoard(time, 0.42);
+    ctx.restore();
+
+    ctx.save();
+    ctx.drawImage(fxCanvas, 0, 0, width, height);
+    bloomCtx.clearRect(0, 0, width, height);
+    bloomCtx.drawImage(fxCanvas, 0, 0, width, height);
+    ctx.globalCompositeOperation = "lighter";
+    ctx.filter = "blur(9px)";
+    ctx.globalAlpha = 0.62;
+    ctx.drawImage(bloomCanvas, 0, 0, width, height);
+    ctx.filter = "none";
+    ctx.globalAlpha = 1;
+    ctx.restore();
     drawFlash();
+  } else {
+    drawBoard(time, 1);
   }
+}
+
+function csave(fn) {
+  ctx.save();
+  fn();
   ctx.restore();
 }
 
