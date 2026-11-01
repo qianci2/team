@@ -18,14 +18,75 @@ const REQUIRED_FILES = [
   "CONTRIBUTING.md",
   "LICENSE",
   "README.md",
+  "assets/README.md",
   "docs/baseline/01-requirements-v2.1.md",
   "docs/baseline/02-design-v1.0.md",
   "docs/baseline/README.md",
+  "docs/calibration.json",
+  "docs/contributions.md",
+  "docs/demo.md",
+  "docs/levels.md",
   "docs/project-brief.md",
+  "docs/release-notes-v1.0.0.md",
   "docs/roadmap.md",
+  "docs/screenshots/README.md",
+  "docs/session.md",
+  "docs/storage-rank.md",
+  "docs/test-report.md",
+  "docs/traceability.md",
+  "docs/ui.md",
+  "docs/user-guide.md",
   "package.json",
+  "scripts/bench.mjs",
+  "scripts/calibrate.mjs",
   "scripts/check-repo.mjs",
+  "scripts/mock-rank-server.mjs",
+  "scripts/serve.mjs",
+  "src/app/.gitkeep",
+  "src/app/bootstrap.js",
+  "src/app/levels-loader.js",
+  "src/app/messages.js",
+  "src/app/rank.js",
+  "src/app/save-schema.js",
+  "src/app/session.js",
+  "src/app/store.js",
+  "src/lib/board.js",
+  "src/lib/clock.js",
+  "src/lib/economy.js",
+  "src/lib/levels.js",
+  "src/lib/levels.json",
+  "src/lib/logger.js",
+  "src/lib/platform.js",
+  "src/lib/random.js",
+  "src/lib/run.js",
+  "src/lib/score.js",
+  "src/ui/.gitkeep",
+  "src/ui/animation.js",
+  "src/ui/app.js",
+  "src/ui/audio.js",
+  "src/ui/format.js",
+  "src/ui/input.js",
+  "src/ui/layout.js",
+  "src/ui/palette.js",
+  "src/ui/renderer.js",
+  "test/board.test.mjs",
+  "test/bootstrap.test.mjs",
+  "test/domain-boundaries.test.mjs",
+  "test/economy.test.mjs",
+  "test/levels.test.mjs",
+  "test/platform.test.mjs",
+  "test/rank.test.mjs",
   "test/repo.test.mjs",
+  "test/save.test.mjs",
+  "test/session.test.mjs",
+  "test/store.test.mjs",
+  "test/run.test.mjs",
+  "test/score.test.mjs",
+  "test/server.test.mjs",
+  "test/ui.test.mjs",
+  "web/app.js",
+  "web/index.html",
+  "web/style.css",
 ];
 
 const BASELINE_MARKERS = [
@@ -71,6 +132,12 @@ export function checkRepo(root = ROOT) {
     if (statSync(full).isFile() && statSync(full).size === 0) {
       errors.push(`文件为空：${rel}`);
     }
+    if (statSync(full).isFile()) {
+      const bytes = readFileSync(full);
+      if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
+        errors.push(`文件含 UTF-8 BOM：${rel}`);
+      }
+    }
   }
 
   for (const { file, markers } of BASELINE_MARKERS) {
@@ -86,7 +153,7 @@ export function checkRepo(root = ROOT) {
   if (existsSync(pkgPath)) {
     try {
       const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
-      for (const script of ["check", "test"]) {
+      for (const script of ["check", "test", "dev"]) {
         if (!pkg.scripts?.[script]) errors.push(`package.json 缺少 script：${script}`);
       }
     } catch (error) {

@@ -1,6 +1,6 @@
 {
   "name": "gemz",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "星消乐：轻量级益智消除类网页游戏（课程团队项目）",
@@ -9,8 +9,13 @@
     "node": ">=20"
   },
   "scripts": {
+    "dev": "node scripts/serve.mjs",
+    "start": "npm run dev",
+    "bench": "node scripts/bench.mjs",
+    "calibrate": "node scripts/calibrate.mjs --runs=200 --levels=1-30 --skill=0.25 --keep2=0.2 --out=docs/calibration.json",
     "check": "node scripts/check-repo.mjs",
     "test": "node --test",
+    "test:coverage": "node --experimental-test-coverage --test",
     "test:watch": "node --test --watch"
   }
 }
