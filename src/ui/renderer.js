@@ -9,6 +9,7 @@
 import { cellRect, computeLayout } from "./layout.js";
 import { COLORS, SPECIAL_STYLES, TILE_STYLES, tileStyle } from "./palette.js";
 import { easeInQuad, easeOutCubic, planSteps, stepTiming, swapBoard } from "./animation.js";
+import { createEffectSystem, effectForStep } from "./effects.js";
 
 const PAPER = COLORS.surface;
 const INK = COLORS.ink;
@@ -171,6 +172,7 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
   let clockMs = 0;
   let reduced = Boolean(reducedMotion);
   let destroyed = false;
+  const effects = createEffectSystem({ reducedMotion: reduced });
 
   function now() {
     return typeof performance !== "undefined" ? performance.now() : Date.now();
@@ -261,6 +263,7 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
 
   function setReducedMotion(value) {
     reduced = Boolean(value);
+    effects.setReducedMotion(reduced);
   }
 
   function shake() {
@@ -293,10 +296,38 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
     }
   }
 
+  function triggerLayeredEffect(item) {
+    if (reduced) return;
+    const spec = effectForStep(item?.step);
+    if (!spec) return;
+    const [row, col] = spec.pos ?? [];
+    if (!Number.isInteger(row) || !Number.isInteger(col)) return;
+    if (row < 0 || row >= layout.rows || col < 0 || col >= layout.cols) return;
+    const rect = cellRect(layout, row, col);
+    const tile = (item.step.clearedTiles ?? []).find(
+      (entry) => entry.pos?.[0] === row && entry.pos?.[1] === col,
+    );
+    const color =
+      spec.kind === "frost"
+        ? "#dff8ff"
+        : spec.kind === "gravity"
+          ? "#e4b5ef"
+          : tileStyle(tile?.kind)?.color ?? "#f5eddf";
+    effects.trigger(spec.kind, {
+      x: rect.centerX,
+      y: rect.centerY,
+      color,
+      cell: rect.width,
+      now: now(),
+    });
+    dirty = true;
+  }
+
   function spawnSpecialBurst(item) {
     if (reduced) return;
     const step = item?.step;
     if (!step) return;
+    triggerLayeredEffect(item);
     const at = now();
     const points = [];
     for (const spawn of step.spawned ?? []) points.push({ pos: spawn.at, kind: spawn.kind });
@@ -819,6 +850,9 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
       drawCursor();
     }
 
+    effects.drawBackdrop(ctx, time);
+    effects.draw(ctx, time);
+
     if (time < flashUntil && !reduced) {
       const opacity = Math.max(0, (flashUntil - time) / 180) * 0.22;
       ctx.fillStyle = `rgba(255, 246, 214, ${opacity})`;
@@ -840,6 +874,7 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
     if (time - lastFrameAt >= cadence) {
       const index = anim ? anim.index : -1;
       advanceAnimation(time);
+      effects.update(time);
       if (anim && anim.index !== index) dirty = true;
       frameTimes.push(time);
       while (frameTimes.length > 0 && time - frameTimes[0] > 1000) frameTimes.shift();
@@ -849,7 +884,7 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
         particles: particles.length,
       };
       onStats?.(stats);
-      if (dirty || anim || particles.length > 0 || combo || time < shakeUntil) {
+      if (dirty || anim || particles.length > 0 || effects.count() > 0 || combo || time < shakeUntil) {
         draw(time);
         dirty = false;
       }
@@ -868,6 +903,7 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
   function destroy() {
     destroyed = true;
     running = false;
+    effects.clear();
     if (rafId) globalThis.cancelAnimationFrame?.(rafId);
     resizeObserver?.disconnect?.();
     globalThis.removeEventListener?.("resize", resize);
@@ -899,7 +935,7 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
     setReducedMotion,
     play,
     shake,
-    stats: () => ({ fps: frameTimes.length, animating: Boolean(anim) }),
+    stats: () => ({ fps: frameTimes.length, animating: Boolean(anim), effects: effects.count() }),
     get isPlaying() {
       return Boolean(anim);
     },
