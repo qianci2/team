@@ -175,9 +175,9 @@ test("界面文案：星数、章节、目标与千分位口径一致", () => {
   assert.equal(starText(-2), "☆☆☆");
   assert.equal(sumStars({ 1: 3, 2: 2, 7: 1 }), 6);
   assert.equal(sumStars({}), 0);
-  assert.equal(chapterName(1), "第一程");
-  assert.equal(chapterName(3), "第三程");
-  assert.equal(chapterName(4), "第 4 程");
+  assert.equal(chapterName(1), "第 1–5 关");
+  assert.equal(chapterName(3), "第 16–30 关");
+  assert.equal(chapterName(4), "第 4 组");
   assert.equal(goalLabel({ kind: "score" }), "目标分");
   assert.equal(goalLabel({ kind: "collect" }, { goals: { collect: { color: 2 } } }), "收集赭黄");
   assert.equal(goalLabel({ kind: "collect" }, {}), "收集星石");

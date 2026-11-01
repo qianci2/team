@@ -12,8 +12,9 @@ import { easeInQuad, easeOutCubic, planSteps, stepTiming, swapBoard } from "./an
 
 const PAPER = COLORS.surface;
 const INK = COLORS.ink;
-const ICE_FILL = "rgba(185, 178, 139, 0.42)";
-const ICE_EDGE = "rgba(68, 59, 47, 0.4)";
+const ICE_FILL = "rgba(178, 226, 244, 0.5)";
+const ICE_EDGE = "rgba(39, 112, 145, 0.9)";
+const ICE_GLOW = "rgba(82, 183, 219, 0.55)";
 
 function hash(value) {
   let x = Math.imul((Number(value) || 0) + 0x9e3779b9, 0x85ebca6b);
@@ -163,8 +164,11 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
   let anim = null;
   let animResolve = null;
   let particles = [];
+  let bursts = [];
   let combo = null;
   let shakeUntil = 0;
+  let flashUntil = 0;
+  let clockMs = 0;
   let reduced = Boolean(reducedMotion);
   let destroyed = false;
 
@@ -289,6 +293,66 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
     }
   }
 
+  function spawnSpecialBurst(item) {
+    if (reduced) return;
+    const step = item?.step;
+    if (!step) return;
+    const at = now();
+    const points = [];
+    for (const spawn of step.spawned ?? []) points.push({ pos: spawn.at, kind: spawn.kind });
+    for (const tile of step.clearedTiles ?? []) {
+      if (tile.kind === "bomb" || tile.kind === "rainbow") points.push({ pos: tile.pos, kind: tile.kind });
+    }
+    if ((step.score?.specialBonus ?? 0) > 0 && points.length === 0) {
+      points.push({ pos: step.cleared?.[0] ?? [4, 4], kind: "bomb" });
+    }
+    if (points.length === 0) return;
+    for (const point of points) {
+      const rect = cellRect(layout, point.pos[0], point.pos[1]);
+      bursts.push({
+        x: rect.centerX,
+        y: rect.centerY,
+        bornAt: at,
+        life: 560,
+        radius: rect.width * (point.kind === "rainbow" ? 1.45 : 1.05),
+        color: point.kind === "rainbow" ? "rgba(176, 112, 190, 0.9)" : "rgba(230, 142, 68, 0.9)",
+      });
+    }
+    flashUntil = Math.max(flashUntil, at + 180);
+    shake();
+    dirty = true;
+  }
+
+  function drawSpecialBursts(time) {
+    if (bursts.length === 0) return;
+    const alive = [];
+    for (const burst of bursts) {
+      const age = time - burst.bornAt;
+      if (age > burst.life) continue;
+      alive.push(burst);
+      const t = Math.max(0, Math.min(1, age / burst.life));
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = 1 - t;
+      ctx.strokeStyle = burst.color;
+      ctx.lineWidth = Math.max(1.5, burst.radius * 0.06 * (1 - t));
+      ctx.beginPath();
+      ctx.arc(burst.x, burst.y, burst.radius * (0.35 + t * 0.85), 0, Math.PI * 2);
+      ctx.stroke();
+      for (let i = 0; i < 8; i += 1) {
+        const angle = (i * Math.PI) / 4 + t * 0.35;
+        const inner = burst.radius * (0.2 + t * 0.45);
+        const outer = burst.radius * (0.55 + t * 0.7);
+        ctx.beginPath();
+        ctx.moveTo(burst.x + Math.cos(angle) * inner, burst.y + Math.sin(angle) * inner);
+        ctx.lineTo(burst.x + Math.cos(angle) * outer, burst.y + Math.sin(angle) * outer);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+    bursts = alive;
+  }
+
   function finishAnimation() {
     if (animResolve) {
       const resolve = animResolve;
@@ -327,6 +391,7 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
     board = plan.items[0].before;
     combo = null;
     spawnParticles(plan.items[0]);
+    spawnSpecialBurst(plan.items[0]);
     if (plan.items[0].step.chain >= 2) {
       combo = { chain: plan.items[0].step.chain, until: now() + timing.stepMs };
     }
@@ -355,6 +420,7 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
       }
       const nextItem = anim.items[anim.index];
       spawnParticles(nextItem);
+      spawnSpecialBurst(nextItem);
       if (nextItem.step.chain >= 2) {
         combo = { chain: nextItem.step.chain, until: now() + anim.stepMs };
       }
@@ -417,7 +483,12 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
   function drawIce(row, col, level) {
     if (!level) return;
     const rect = cellRect(layout, row, col);
-    const inset = rect.width * 0.04;
+    const inset = rect.width * 0.03;
+    const frost = ctx.createLinearGradient(rect.x, rect.y, rect.x, rect.y + rect.height);
+    frost.addColorStop(0, "rgba(230, 250, 255, 0.72)");
+    frost.addColorStop(0.5, "rgba(165, 220, 240, 0.42)");
+    frost.addColorStop(1, "rgba(94, 172, 205, 0.52)");
+
     roundedPath(
       ctx,
       rect.x + inset,
@@ -426,31 +497,51 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
       rect.height - inset * 2,
       [rect.width * 0.22, rect.width * 0.2, rect.width * 0.24, rect.width * 0.2],
     );
-    ctx.fillStyle = ICE_FILL;
+    ctx.fillStyle = frost;
     ctx.fill();
+    ctx.save();
+    ctx.shadowColor = ICE_GLOW;
+    ctx.shadowBlur = rect.width * 0.22;
     ctx.strokeStyle = ICE_EDGE;
-    ctx.lineWidth = Math.max(1, rect.width * (level > 1 ? 0.045 : 0.028));
+    ctx.lineWidth = Math.max(2, rect.width * (level > 1 ? 0.07 : 0.05));
     ctx.stroke();
+    ctx.restore();
+
+    // 六角雪花：让冰层不只依赖颜色，也能远距离识别。
+    const arm = rect.width * 0.26;
+    ctx.save();
+    ctx.translate(rect.centerX, rect.centerY);
+    ctx.strokeStyle = "rgba(22, 91, 122, 0.9)";
+    ctx.lineWidth = Math.max(1.5, rect.width * 0.035);
+    ctx.lineCap = "round";
+    for (let i = 0; i < 6; i += 1) {
+      const angle = (i * Math.PI) / 3;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(angle) * arm, Math.sin(angle) * arm);
+      ctx.stroke();
+      const bx = Math.cos(angle) * arm * 0.58;
+      const by = Math.sin(angle) * arm * 0.58;
+      ctx.beginPath();
+      ctx.moveTo(bx, by);
+      ctx.lineTo(bx + Math.cos(angle + 0.7) * arm * 0.22, by + Math.sin(angle + 0.7) * arm * 0.22);
+      ctx.moveTo(bx, by);
+      ctx.lineTo(bx + Math.cos(angle - 0.7) * arm * 0.22, by + Math.sin(angle - 0.7) * arm * 0.22);
+      ctx.stroke();
+    }
+    ctx.restore();
 
     if (level > 1) {
-      const inner = rect.width * 0.17;
-      roundedPath(
-        ctx,
-        rect.x + inner,
-        rect.y + inner,
-        rect.width - inner * 2,
-        rect.height - inner * 2,
-        [rect.width * 0.14, rect.width * 0.12, rect.width * 0.16, rect.width * 0.12],
-      );
-      ctx.strokeStyle = "rgba(68, 59, 47, 0.28)";
-      ctx.lineWidth = 1;
-      ctx.stroke();
+      const badge = rect.width * 0.3;
       ctx.beginPath();
-      ctx.moveTo(rect.centerX - rect.width * 0.22, rect.centerY - rect.height * 0.08);
-      ctx.lineTo(rect.centerX, rect.centerY + rect.height * 0.12);
-      ctx.lineTo(rect.centerX + rect.width * 0.18, rect.centerY - rect.height * 0.18);
-      ctx.strokeStyle = "rgba(41, 37, 29, 0.2)";
-      ctx.stroke();
+      ctx.arc(rect.x + rect.width - badge * 0.62, rect.y + badge * 0.62, badge * 0.42, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(26, 92, 122, 0.94)";
+      ctx.fill();
+      ctx.fillStyle = "#f4fcff";
+      ctx.font = `700 ${Math.max(10, rect.width * 0.24)}px "Segoe UI", system-ui, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("2", rect.x + rect.width - badge * 0.62, rect.y + badge * 0.62);
     }
   }
 
@@ -475,6 +566,21 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
     const x = -size / 2;
     const y = -size / 2;
     const radii = organicRadii(size, seed + 5);
+
+    if (tile.kind === "bomb" || tile.kind === "rainbow") {
+      const pulse = 0.5 + 0.5 * Math.sin(clockMs / 170 + seed);
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = alpha * (0.28 + pulse * 0.3);
+      ctx.strokeStyle = tile.kind === "rainbow" ? "#e4b5ef" : "#ffc37a";
+      ctx.lineWidth = Math.max(2, size * 0.06);
+      ctx.shadowColor = ctx.strokeStyle;
+      ctx.shadowBlur = size * 0.22;
+      ctx.beginPath();
+      ctx.arc(0, 0, size * (0.55 + pulse * 0.08), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
 
     roundedPath(ctx, x, y + size * 0.045, size, size, radii);
     ctx.fillStyle = style.rim;
@@ -678,6 +784,7 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
   }
 
   function draw(time) {
+    clockMs = time;
     ctx.clearRect(0, 0, layout.width, layout.height);
     ctx.save();
 
@@ -700,14 +807,22 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
       const stateBoard = phase < 0.3 ? item.before : item.after;
       drawBoardWithState(stateBoard, item, phase);
       drawParticles(time);
+      drawSpecialBursts(time);
       drawCombo();
     } else {
       drawBoardWithState(board, null, 1);
       drawParticles(time);
+      drawSpecialBursts(time);
       drawSelection();
       drawHover();
       drawDrag();
       drawCursor();
+    }
+
+    if (time < flashUntil && !reduced) {
+      const opacity = Math.max(0, (flashUntil - time) / 180) * 0.22;
+      ctx.fillStyle = `rgba(255, 246, 214, ${opacity})`;
+      ctx.fillRect(0, 0, layout.width, layout.height);
     }
 
     if (paused) {

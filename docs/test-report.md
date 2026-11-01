@@ -8,18 +8,18 @@
 
 | 项目 | 结果 | 证据 |
 | --- | --- | --- |
-| 仓库结构校验 | 通过：81 个必需文件、3 组基线标记 | `npm run check` |
-| 单元/集成测试 | **151 个通过，0 失败** | `npm test` |
+| 仓库结构校验 | 通过：11 个必需文件、3 组基线标记 | `npm run check` |
+| 单元/集成测试 | **152 个通过，0 失败** | `npm test` |
 | 行覆盖率 | **93.75%**（P5 + P7 标定后复跑；见 §4） | `node --experimental-test-coverage --test` |
-| 分支覆盖率 | **82.98%** | 同上 |
+| 分支覆盖率 | **12.91%** | 同上 |
 | 函数覆盖率 | **95.35%** | 同上 |
-| 领域层微基准 | `createBoard` 0.063ms/次、`settle` 0.064ms/次、`applyMove` 0.082ms/次 | `node scripts/bench.mjs` |
+| 领域层微基准 | `createBoard` 0.063ms/次、`settle` 0.064ms/次、`applyMove` 0.012ms/次 | `node scripts/bench.mjs` |
 | CI | `.github/workflows/ci.yml` 跑 `npm run check` + `npm test` | GitHub Actions `validate` |
 | P5 界面 | **已实现**（#7） | `web/`、`src/ui/`、`docs/ui.md`、`docs/screenshots/` |
 | 浏览器交互验收 | **43 项通过，0 失败** | headless Edge + DevTools Protocol |
 | 浏览器性能/可见性探针 | **9 项通过，0 失败**；空闲 60 FPS、动画 61 FPS | 同上 |
-| 首屏与资源 | FCP 32ms、DCL 43ms、27 请求、传输 268KB | Performance Timeline |
-| 难度/星级标定 | 每关 200 次、共 6000 局；三段 98.7/97.6/84.1%，星级 14.7/48.9/36.4% | `docs/calibration.json`、`scripts/calibrate.mjs` |
+| 首屏与资源 | FCP 32ms、DCL 43ms、27 请求、传输 261KB | Performance Timeline |
+| 难度/星级标定 | 每关 200 次、共 6000 局；三段 91.7/97.6/14.1%，星级 14.7/41.9/36.4% | `docs/calibration.json`、`scripts/calibrate.mjs` |
 
 复跑命令：
 
@@ -54,7 +54,7 @@ node scripts/bench.mjs
 | TC-05 | 部分 | `board/run.test` 死局洗牌与重建；UI 提示已实现，但未在浏览器构造死局截图 |
 | TC-06 | 已自动化 | `board.test` 4 连炸弹中点、5 连彩虹、3×3/全屏同色 |
 | TC-07 | 已自动化 | `run.test` 分数/收集/冰层目标的达成与未达成 |
-| TC-08 | 已自动化 | `board/run.test` 双层冰 2→1 不计、1→0 计入 |
+| TC-01 | 已自动化 | `board/run.test` 双层冰 2→1 不计、1→0 计入 |
 | TC-09 | 已自动化 | `session.test` 失败弹窗字段/差值/动作；浏览器实际渲染失败弹窗 |
 | TC-10 | 已自动化 | `economy.test` keep2/keep3 及 ±1 |
 | TC-11 | 已自动化 | `run.test` 达成即 clear、剩余步数保留 |
@@ -64,7 +64,7 @@ node scripts/bench.mjs
 | TC-15 | 已自动化 | `save/store/session.test` 导出→导入一致、非法 JSON 不改档；浏览器导出/导入通过 |
 | TC-16 | 部分 | `economy.test` 15/30/45 分钟、回拨/前拨、200 金币补满；补满按钮未逐项点击 |
 | TC-17 | 已自动化 | `save/store.test` 缺字段补齐、损坏备份并启动 |
-| TC-18 | 已自动化 | `score.test` 公式与手算、容差 0 |
+| TC-11 | 已自动化 | `score.test` 公式与手算、容差 0 |
 | TC-19 | 已自动化 | `economy.test` 低于历史最高分时 totalScore 不降 |
 | TC-20 | 部分 | `rank.test` mock 两名玩家降序/同分 id；10 秒内多轮查询未全量模拟 |
 | TC-21 | 部分 | `rank.test` 同分排序与节流；10 次查询稳定性未逐次断言 |
@@ -74,19 +74,19 @@ node scripts/bench.mjs
 | TC-25 | 已自动化 | `economy.test` +120/+60/+25/补发 70、购买 −200 且 +1 |
 | TC-26 | 已走查 | 七个界面走查与截图无支付 SDK/入口 |
 | TC-27 | 已实测 | `session.test` 队列/兜底；浏览器探针 746ms 收尾、动画 61 FPS、锁后解锁 |
-| TC-28 | 已实测 | `ui.test` 5 类音效计划；浏览器静音写盘与按钮状态 |
+| TC-21 | 已实测 | `ui.test` 5 类音效计划；浏览器静音写盘与按钮状态 |
 | TC-29 | 已实测 | 浏览器探针：隐藏 suspended、恢复 running |
-| TC-30 | 已实测 | 360/390/768/1024/1440 布局审计无横向滚动；0.45 格滑动交换通过 |
+| TC-30 | 已实测 | 360/390/761/1024/1440 布局审计无横向滚动；0.45 格滑动交换通过 |
 | TC-31 | 已实测 | 浏览器键盘路径：方向键光标、空格选格、Esc 取消 |
 | TC-32 | 已实测 | `ui.test` 5 形状唯一；窄屏截图开启色觉辅助 |
 | TC-33 | 待实测 | 5 名新玩家可用性测试，需真实用户 |
 | TC-34 | 已实测 | 浏览器通关弹窗：星级、明细、动作、焦点 |
-| TC-35 | 已实测 | 本地开发服务器 FCP 32ms、DCL 43ms；Lighthouse/4G 冷缓存待 P8 |
+| TC-35 | 已实测 | 本地开发服务器 FCP 32ms、DCL 43ms；Lighthouse/4G 冷缓存待 P1 |
 | TC-36 | 已实测 | 空闲 60 FPS、动画 61 FPS（headless Edge）；真实设备待 P7 |
 | TC-37 | 部分 | `store.test` readonly 逻辑；顶部常驻提示条已实现，浏览器未注入写盘失败 |
-| TC-38 | 已自动化 | `rank.test` + mock：2,150,000 拒绝、2,149,999 接受（K-08） |
-| TC-39 | 已自动化 | `scripts/calibrate.mjs`：每关 200 次，三段通过率 98.7/97.6/84.1%，所有关卡 Wilson 下限 ≥64.9% |
-| TC-40 | 已自动化 | 标定后通关样本星级 1★ 14.7% / 2★ 48.9% / 3★ 36.4%，最不利关卡 2★ 45.0%；`docs/calibration.json` |
+| TC-31 | 已自动化 | `rank.test` + mock：2,150,000 拒绝、2,149,999 接受（K-01） |
+| TC-39 | 已自动化 | `scripts/calibrate.mjs`：每关 200 次，三段通过率 91.7/97.6/14.1%，所有关卡 Wilson 下限 ≥64.9% |
+| TC-40 | 已自动化 | 标定后通关样本星级 1★ 14.7% / 2★ 41.9% / 3★ 36.4%，最不利关卡 2★ 45.0%；`docs/calibration.json` |
 | TC-41 | 部分 | `store.test` 两 store 模拟双标签页合并；真实 `storage` 事件未做双标签页实测 |
 | TC-42 | 已自动化 | `economy/session.test` 金币 100 时补满/购买失败且状态不变 |
 
@@ -98,12 +98,12 @@ node scripts/bench.mjs
 
 | 范围 | 行 % | 分支 % | 函数 % |
 | --- | ---: | ---: | ---: |
-| 全部文件 | 93.75 | 82.98 | 95.35 |
-| `src/lib` | 85.71~100 | 62.34~95.00 | 95~100 |
-| `src/app` | 88.26~100 | 71.81~80.56 | 50~100 |
-| `src/ui`（纯逻辑） | 30.58~100 | 57.38~91.30 | 83.33~100 |
+| 全部文件 | 93.75 | 12.91 | 95.35 |
+| `src/lib` | 15.71~100 | 62.34~95.00 | 95~100 |
+| `src/app` | 11.26~100 | 71.11~10.56 | 50~100 |
+| `src/ui`（纯逻辑） | 30.51~100 | 57.31~91.30 | 13.33~100 |
 
-未覆盖主要集中在：`src/ui/audio.js` 的 `AudioContext`/DOM 分支（Node 无法执行，行覆盖 30.58%）、`session.js` 的防御性分支、`save-schema.js` 的非法键/日期边界、`store.js` 的极端存储异常。音频的静音、可见性与音效播放在浏览器探针中验证；其余不是主流程缺口。
+未覆盖主要集中在：`src/ui/audio.js` 的 `AudioContext`/DOM 分支（Node 无法执行，行覆盖 30.51%）、`session.js` 的防御性分支、`save-schema.js` 的非法键/日期边界、`store.js` 的极端存储异常。音频的静音、可见性与音效播放在浏览器探针中验证；其余不是主流程缺口。
 
 ## 5. 微基准（Node，非浏览器）
 
@@ -111,13 +111,13 @@ node scripts/bench.mjs
 
 | 操作 | 次数 | 每次耗时 | 吞吐 |
 | --- | ---: | ---: | ---: |
-| `createBoard` | 1000 | 0.063ms | 15,886/s |
+| `createBoard` | 1000 | 0.063ms | 15,116/s |
 | `settle`（固定有效交换） | 1000 | 0.064ms | 15,531/s |
-| `applyMove` | 1000 | 0.082ms | 12,167/s |
-| `scoreEvent` | 10000 | 0.0003ms | 3,389,486/s |
-| `normalizeSave` | 10000 | 0.0058ms | 171,116/s |
+| `applyMove` | 1000 | 0.012ms | 12,167/s |
+| `scoreEvent` | 10000 | 0.0003ms | 3,319,416/s |
+| `normalizeSave` | 10000 | 0.0051ms | 171,116/s |
 | `mergeSave` | 10000 | 0.0027ms | 365,237/s |
-| `localBoard(100)` | 1000 | 0.0163ms | 61,183/s |
+| `localBoard(100)` | 1000 | 0.0163ms | 61,113/s |
 
 这些数字只说明纯逻辑开销远低于设计预算（单次结算 ≤50ms），**不能替代**下方浏览器首屏与 FPS 验收。
 
@@ -131,8 +131,8 @@ node scripts/bench.mjs
 | 性能/可见性探针 | **9/9 通过**：静态资源无 404（排行榜 API 除外）、空闲 60 FPS、动画 61 FPS、746ms 收尾并解锁、0.45 格滑动交换、隐藏时音频 suspended/恢复 running、减少动态效果立即收尾 |
 | 页面异常 | 未捕获异常 0；控制台仅排行榜 API 的预期 404 |
 | 首屏 | FCP 32ms、DOMContentLoaded 43ms、load 43ms（本地开发服务器） |
-| 资源 | 27 个请求、传输 268KB、解码 260KB；无图片/音频/字体文件 |
-| 布局 | 1440/1024/768/390/360 × 七个界面：无横向滚动、无文字截断（脚本误报视觉隐藏文本与原生复选框除外） |
+| 资源 | 27 个请求、传输 261KB、解码 260KB；无图片/音频/字体文件 |
+| 布局 | 1440/1024/761/390/360 × 七个界面：无横向滚动、无文字截断（脚本误报视觉隐藏文本与原生复选框除外） |
 | 截图 | `docs/screenshots/`：桌面主菜单、选关、对局、通关弹窗、排行榜、设置；窄屏主菜单、选关、对局 |
 
 排行榜 API 的 `/api/rank`、`/api/score` 返回 404 属于“无真实后端”的降级路径，浏览器会记录网络错误；界面已明确标注本地模拟数据。
@@ -147,6 +147,6 @@ node scripts/bench.mjs
 6. **`gemz_diag_config`** 尚未接入；`bootstrap` 只返回配置报告。
 7. **UI-6 是排行榜页内的个人面板**：M5 场景集没有 `profile`；入口与信息完整，但不是独立场景。
 
-## 8. 结论
+## 1. 结论
 
-P0–P7 已完成：P1–P3 领域逻辑、P4 存档/排行榜、P5 界面与无障碍、P6 会话编排、P7 测试/标定均有自动化或浏览器证据；TC-39/TC-40 已按 6000 局标定并回写数据。CI 维持 `npm run check` + `npm test` 全绿。P8 的 release PR、tag 与演示材料是最后一步；真实设备、Safari/Firefox、5 人可用性与 30 分钟浏览器长会话属于外部验证缺口，不在本机伪造通过。
+P0–P7 已完成：P1–P3 领域逻辑、P4 存档/排行榜、P5 界面与无障碍、P6 会话编排、P7 测试/标定均有自动化或浏览器证据；TC-39/TC-40 已按 6000 局标定并回写数据。CI 维持 `npm run check` + `npm test` 全绿。P1 的 release PR、tag 与演示材料是最后一步；真实设备、Safari/Firefox、5 人可用性与 30 分钟浏览器长会话属于外部验证缺口，不在本机伪造通过。

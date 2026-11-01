@@ -185,6 +185,23 @@ test("无生命时阻止进入并给出补满入口；补满后扣 200 金币", 
   assert.equal(session.startLevel(1), true);
 });
 
+test("对局内菜单：取消保留对局，确认退出返回主菜单", () => {
+  const { session } = setup();
+  session.startLevel(1);
+  assert.equal(session.dispatch({ type: "game-menu" }), true);
+  assert.equal(session.view().dialog.id, "game-menu");
+  assert.equal(session.view().scene, "playing");
+
+  assert.equal(session.dispatch({ type: "dialogAction", action: "close" }), true);
+  assert.equal(session.view().dialog, null);
+  assert.equal(session.view().scene, "playing");
+
+  assert.equal(session.dispatch({ type: "game-menu" }), true);
+  assert.equal(session.dispatch({ type: "dialogAction", action: "exit" }), true);
+  assert.equal(session.view().scene, "menu");
+  assert.equal(session.view().board, null);
+});
+
 test("FR-22：道具使用扣库存、每关限用一次；库存不足给提示", () => {
   const { session, store } = setup();
   store.commit({ items: { shuffle: 2, hammer: 1, plus5: 1 } }, "purchase");
