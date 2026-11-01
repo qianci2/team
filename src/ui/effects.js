@@ -112,7 +112,7 @@ export function createEffectSystem({ reducedMotion = false } = {}) {
           vy: Math.sin(angle) * speed - cell * 0.4,
           bornAt: now,
           life: rand(380, 700),
-          size: cell * rand(0.08, 0.18),
+          size: cell * rand(0.14, 0.28),
           color,
           rotation: angle,
         });
@@ -126,7 +126,7 @@ export function createEffectSystem({ reducedMotion = false } = {}) {
           vy: Math.sin(angle) * speed - cell * 0.5,
           bornAt: now,
           life: rand(320, 760),
-          size: rand(0.7, 1.8),
+          size: rand(1.2, 3.2),
           color: i % 3 === 0 ? "#fff6da" : color,
           gravity: cell * 4,
         });
@@ -236,7 +236,7 @@ export function createEffectSystem({ reducedMotion = false } = {}) {
       ctx.save();
       ctx.translate(x, y);
       ctx.rotate(petal.rotation);
-      ctx.globalAlpha = (1 - t) * 0.52;
+      ctx.globalAlpha = (1 - t) * 0.68;
       ctx.fillStyle = petal.color;
       ctx.beginPath();
       ctx.ellipse(0, 0, petal.size * 0.36, petal.size * 1.5, 0, 0, TAU);
@@ -253,7 +253,7 @@ export function createEffectSystem({ reducedMotion = false } = {}) {
       ctx.save();
       ctx.translate(shard.x + shard.vx * age, shard.y + shard.vy * age + shard.gravity * age * age);
       ctx.rotate(shard.rotation + shard.spin * age);
-      ctx.globalAlpha = (1 - t) * 0.5;
+      ctx.globalAlpha = (1 - t) * 0.65;
       ctx.beginPath();
       shard.points.forEach(([px, py], index) => (index === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py)));
       ctx.closePath();
@@ -322,8 +322,8 @@ export function createEffectSystem({ reducedMotion = false } = {}) {
       const t = clamp((now - center.bornAt) / center.life, 0, 1);
       const radius = center.cell * 3.3;
       const gradient = ctx.createRadialGradient(center.x, center.y, 0, center.x, center.y, radius);
-      gradient.addColorStop(0, `rgba(24, 20, 16, ${0.3 * (1 - t)})`);
-      gradient.addColorStop(0.55, `rgba(24, 20, 16, ${0.14 * (1 - t)})`);
+      gradient.addColorStop(0, `rgba(24, 20, 16, ${0.4 * (1 - t)})`);
+      gradient.addColorStop(0.55, `rgba(24, 20, 16, ${0.2 * (1 - t)})`);
       gradient.addColorStop(1, "rgba(24, 20, 16, 0)");
       ctx.fillStyle = gradient;
       ctx.fillRect(center.x - radius, center.y - radius, radius * 2, radius * 2);
