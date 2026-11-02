@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | `src/app/save-schema.js` | 应用层数据 | DS-1 默认值、字段归一化、迁移入口、多标签页合并、导入校验、序列化 |
 | `src/app/store.js` | M10 | 内存唯一事实源、`localStorage` 适配、写盘、订阅、`storage` 事件合并 |
-| `src/app/rank.js` | M9 | 提交/查询、3s 超时、客户端校验、本地模拟榜单 |
+| `src/app/rank.js` | M9 | 提交/查询、3s 超时、客户端校验、本地兜底空榜 |
 | `scripts/mock-rank-server.mjs` | 测试/联调 | HTTP-1/HTTP-2 契约 mock；内存数据，不代表真实后端 |
 | `test/save.test.mjs` | 测试 | DS-1、INV、迁移、合并、导入导出 |
 | `test/store.test.mjs` | 测试 | 写盘、只读降级、损坏恢复、`storage` 事件 |
@@ -73,8 +73,8 @@ await rank.fetch(100);
 ```
 
 - 客户端校验与 mock 使用同一昵称正则；分数上限用 M2 的 `TOTAL_MAX = 2,140,200`。服务端拒绝边界按 K-08：**达到 2,150,000 即拒绝**，2,149,999 接受，对齐 TC-38。
-- 超时 3s；网络失败、HTTP 5xx、`code` 非 0 都降级为本地模拟榜单，`source:'local'`，界面必须标注“本地模拟数据”。
-- `localBoard` 固定 100 条、确定性；玩家已设置合法昵称时按总积分插入。
+- 超时 3s；网络失败、HTTP 5xx、`code` 非 0 都降级为本地兜底空榜，`source:'local'`；提交成功后才显示自己这一条。
+- `localBoard` 初始为空；只有本次会话成功提交成绩后，才返回自己这一条。
 - 同一时刻只允许一个提交；进行中再次提交返回 `busy`，不排队、不重复发送。
 
 ## 6. Mock server

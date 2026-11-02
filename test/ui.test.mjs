@@ -191,7 +191,7 @@ test("界面文案：星数、章节、目标与千分位口径一致", () => {
 });
 
 test("音效：5 类音效都有音符计划，连锁越高音高越高（FR-26）", () => {
-  assert.equal(EFFECTS.length, 5);
+  assert.equal(EFFECTS.length, 6);
   for (const effect of EFFECTS) {
     const plan = effectPlan(effect, 1);
     assert.ok(plan.length >= 1, `${effect} 应有音符`);

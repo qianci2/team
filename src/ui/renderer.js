@@ -9,6 +9,7 @@
 import { cellRect, computeLayout } from "./layout.js";
 import { COLORS, SPECIAL_STYLES, TILE_STYLES, tileStyle } from "./palette.js";
 import { easeInQuad, easeOutCubic, planSteps, stepTiming, swapBoard } from "./animation.js";
+import { createEffectSystem, effectForStep } from "./effects.js";
 
 const PAPER = COLORS.surface;
 const INK = COLORS.ink;
@@ -137,7 +138,96 @@ function drawSymbol(ctx, symbol, cx, cy, size, color, alpha) {
   ctx.restore();
 }
 
-export function createRenderer(canvas, { reducedMotion = false, onStats = null } = {}) {
+/** 炸弹：不是浅色线稿，而是“白热核心 + 旋转金色日珥”。 */
+function drawBombGlyph(c, size, time) {
+  const pulse = 0.5 + 0.5 * Math.sin(time / 230);
+  const core = size * (0.2 + pulse * 0.035);
+  c.save();
+  c.globalCompositeOperation = "lighter";
+
+  const glow = c.createRadialGradient(0, 0, 0, 0, 0, size * 0.62);
+  glow.addColorStop(0, "rgba(255, 252, 235, .95)");
+  glow.addColorStop(0.18, "rgba(255, 210, 126, .9)");
+  glow.addColorStop(0.5, "rgba(235, 126, 45, .3)");
+  glow.addColorStop(1, "rgba(235, 126, 45, 0)");
+  c.fillStyle = glow;
+  c.beginPath();
+  c.arc(0, 0, size * 0.62, 0, Math.PI * 2);
+  c.fill();
+
+  c.save();
+  c.rotate(time / 1250);
+  c.shadowColor = "rgba(255, 166, 64, .85)";
+  c.shadowBlur = size * 0.16;
+  for (let i = 0; i < 8; i += 1) {
+    const angle = (i * Math.PI) / 4;
+    const long = size * (0.44 + 0.045 * Math.sin(time / 280 + i * 1.7));
+    const short = size * 0.12;
+    const width = size * 0.055;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    c.beginPath();
+    c.moveTo(cos * short, sin * short);
+    c.lineTo(cos * long - sin * width, sin * long + cos * width);
+    c.lineTo(cos * long + sin * width, sin * long - cos * width);
+    c.closePath();
+    c.fillStyle = "rgba(255, 228, 164, .98)";
+    c.fill();
+  }
+  c.restore();
+
+  c.beginPath();
+  c.arc(0, 0, core, 0, Math.PI * 2);
+  c.fillStyle = "#fffdf2";
+  c.fill();
+  c.strokeStyle = "rgba(255, 191, 96, .85)";
+  c.lineWidth = Math.max(1, size * 0.035);
+  c.stroke();
+  c.restore();
+}
+
+/** 彩虹：暗底上的棱镜核，五色光点带独立光晕。 */
+function drawRainbowGlyph(c, size, time) {
+  c.save();
+  c.globalCompositeOperation = "lighter";
+  const ring = size * 0.34;
+  TILE_STYLES.forEach((style, index) => {
+    const angle = -Math.PI / 2 + (index * Math.PI * 2) / TILE_STYLES.length + time / 2200;
+    const x = Math.cos(angle) * ring;
+    const y = Math.sin(angle) * ring;
+    const glow = c.createRadialGradient(x, y, 0, x, y, size * 0.22);
+    glow.addColorStop(0, style.color);
+    glow.addColorStop(0.4, style.color);
+    glow.addColorStop(1, "rgba(0,0,0,0)");
+    c.fillStyle = glow;
+    c.beginPath();
+    c.arc(x, y, size * 0.22, 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = "rgba(255,255,245,.9)";
+    c.beginPath();
+    c.arc(x, y, size * 0.035, 0, Math.PI * 2);
+    c.fill();
+  });
+  const core = c.createRadialGradient(0, 0, 0, 0, 0, size * 0.2);
+  core.addColorStop(0, "rgba(255,255,255,.95)");
+  core.addColorStop(0.35, "rgba(255,235,250,.7)");
+  core.addColorStop(1, "rgba(255,235,250,0)");
+  c.fillStyle = core;
+  c.beginPath();
+  c.arc(0, 0, size * 0.2, 0, Math.PI * 2);
+  c.fill();
+  c.strokeStyle = "rgba(255,245,255,.45)";
+  c.lineWidth = Math.max(1, size * 0.018);
+  c.beginPath();
+  c.arc(0, 0, size * 0.26, 0, Math.PI * 2);
+  c.stroke();
+  c.restore();
+}
+
+export function createRenderer(
+  canvas,
+  { reducedMotion = false, onStats = null, onCascade = null } = {},
+) {
   if (!canvas || typeof canvas.getContext !== "function") {
     throw new TypeError("createRenderer 需要 canvas");
   }
@@ -167,10 +257,14 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
   let bursts = [];
   let combo = null;
   let shakeUntil = 0;
+  let shakePower = 3;
+  let shakeDuration = 190;
+  let comboFlashUntil = 0;
   let flashUntil = 0;
   let clockMs = 0;
   let reduced = Boolean(reducedMotion);
   let destroyed = false;
+  const effects = createEffectSystem({ reducedMotion: reduced });
 
   function now() {
     return typeof performance !== "undefined" ? performance.now() : Date.now();
@@ -261,11 +355,16 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
 
   function setReducedMotion(value) {
     reduced = Boolean(value);
+    effects.setReducedMotion(reduced);
   }
 
-  function shake() {
+  function shake(power = 3, duration = 190) {
     if (reduced) return;
-    shakeUntil = now() + 190;
+    const at = now();
+    const active = at < shakeUntil;
+    shakePower = active ? Math.max(shakePower, power) : power;
+    shakeDuration = active ? Math.max(shakeDuration, duration) : duration;
+    shakeUntil = Math.max(shakeUntil, at + duration);
     dirty = true;
   }
 
@@ -293,10 +392,38 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
     }
   }
 
+  function triggerLayeredEffect(item) {
+    if (reduced) return;
+    const spec = effectForStep(item?.step);
+    if (!spec) return;
+    const [row, col] = spec.pos ?? [];
+    if (!Number.isInteger(row) || !Number.isInteger(col)) return;
+    if (row < 0 || row >= layout.rows || col < 0 || col >= layout.cols) return;
+    const rect = cellRect(layout, row, col);
+    const tile = (item.step.clearedTiles ?? []).find(
+      (entry) => entry.pos?.[0] === row && entry.pos?.[1] === col,
+    );
+    const color =
+      spec.kind === "frost"
+        ? "#9fe8ff"
+        : spec.kind === "gravity"
+          ? "#e4b5ef"
+          : "#ffd28a";
+    effects.trigger(spec.kind, {
+      x: rect.centerX,
+      y: rect.centerY,
+      color,
+      cell: rect.width,
+      now: now(),
+    });
+    dirty = true;
+  }
+
   function spawnSpecialBurst(item) {
     if (reduced) return;
     const step = item?.step;
     if (!step) return;
+    triggerLayeredEffect(item);
     const at = now();
     const points = [];
     for (const spawn of step.spawned ?? []) points.push({ pos: spawn.at, kind: spawn.kind });
@@ -392,8 +519,9 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
     combo = null;
     spawnParticles(plan.items[0]);
     spawnSpecialBurst(plan.items[0]);
+    onCascade?.(plan.items[0].step, 0);
     if (plan.items[0].step.chain >= 2) {
-      combo = { chain: plan.items[0].step.chain, until: now() + timing.stepMs };
+      showCombo(plan.items[0].step.chain, timing.stepMs);
     }
     return new Promise((resolve) => {
       animResolve = resolve;
@@ -421,8 +549,9 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
       const nextItem = anim.items[anim.index];
       spawnParticles(nextItem);
       spawnSpecialBurst(nextItem);
+      onCascade?.(nextItem.step, anim.index);
       if (nextItem.step.chain >= 2) {
-        combo = { chain: nextItem.step.chain, until: now() + anim.stepMs };
+        showCombo(nextItem.step.chain, anim.stepMs);
       }
       dirty = true;
     }
@@ -571,6 +700,19 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
       const pulse = 0.5 + 0.5 * Math.sin(clockMs / 170 + seed);
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = alpha * 0.7;
+      const aura = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 0.72);
+      aura.addColorStop(0, tile.kind === "rainbow" ? "rgba(214, 150, 235, .38)" : "rgba(255, 170, 72, .42)");
+      aura.addColorStop(0.45, tile.kind === "rainbow" ? "rgba(180, 110, 220, .15)" : "rgba(235, 120, 40, .16)");
+      aura.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = aura;
+      ctx.beginPath();
+      ctx.arc(0, 0, size * 0.72, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
       ctx.globalAlpha = alpha * (0.28 + pulse * 0.3);
       ctx.strokeStyle = tile.kind === "rainbow" ? "#e4b5ef" : "#ffc37a";
       ctx.lineWidth = Math.max(2, size * 0.06);
@@ -602,9 +744,15 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
     ctx.lineWidth = Math.max(1, size * 0.05);
     ctx.stroke();
 
-    const glyphColor = colorblind ? COLORS.surface : "rgba(245, 237, 223, 0.75)";
-    const glyphAlpha = colorblind ? 0.96 : 0.3;
-    drawSymbol(ctx, style.symbol, 0, 0, size, glyphColor, glyphAlpha);
+    if (tile.kind === "bomb") {
+      drawBombGlyph(ctx, size, clockMs);
+    } else if (tile.kind === "rainbow") {
+      drawRainbowGlyph(ctx, size, clockMs);
+    } else {
+      const glyphColor = colorblind ? COLORS.surface : "rgba(245, 237, 223, 0.75)";
+      const glyphAlpha = colorblind ? 0.96 : 0.3;
+      drawSymbol(ctx, style.symbol, 0, 0, size, glyphColor, glyphAlpha);
+    }
 
     ctx.restore();
   }
@@ -718,15 +866,71 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
     ctx.stroke();
   }
 
-  function drawCombo() {
-    if (!combo) return;
+  function showCombo(chain, duration) {
+    const at = now();
+    combo = { chain, bornAt: at, until: at + Math.max(260, duration) };
+    const power = Math.min(16, 2.5 + chain * 2.4);
+    const shakeFor = Math.min(620, 240 + chain * 55);
+    shake(power, shakeFor);
+    comboFlashUntil = Math.max(comboFlashUntil, at + 140 + chain * 28);
+  }
+
+  function drawCombo(time) {
+    if (!combo || time > combo.until) return;
+    const age = Math.max(0, time - combo.bornAt);
+    const span = Math.max(1, combo.until - combo.bornAt);
+    const t = Math.min(1, age / span);
+    const intro = Math.min(1, age / 170);
+    const settle = easeOutCubic(intro);
+    const pop = 0.72 + settle * 0.28 + Math.sin(intro * Math.PI) * 0.12;
+    const fade = t > 0.72 ? Math.max(0, 1 - (t - 0.72) / 0.28) : 1;
+    const shakeX = Math.sin(age * 0.09) * (1 - settle) * 10;
+    const shakeY = Math.cos(age * 0.13) * (1 - settle) * 5;
+    const bannerWidth = Math.min(layout.width * 0.86, 420);
+    const bannerHeight = Math.max(48, layout.cell * 0.92);
+
     ctx.save();
-    ctx.globalAlpha = 0.92;
-    ctx.fillStyle = COLORS.field;
-    ctx.font = `600 ${Math.max(18, layout.cell * 0.46)}px Georgia, "Songti SC", serif`;
+    ctx.globalAlpha = fade;
+    ctx.translate(layout.width / 2 + shakeX, layout.originY + layout.cell * 1.38 + shakeY);
+    ctx.rotate(-0.075 + Math.sin(age * 0.02) * 0.012);
+    ctx.scale(pop, pop);
+
+    ctx.save();
+    ctx.shadowColor = "rgba(41, 37, 29, 0.22)";
+    ctx.shadowBlur = 18;
+    ctx.shadowOffsetY = 6;
+    roundedPath(
+      ctx,
+      -bannerWidth / 2,
+      -bannerHeight / 2,
+      bannerWidth,
+      bannerHeight,
+      [14, 10, 16, 12],
+    );
+    ctx.fillStyle = "rgba(255, 250, 240, 0.94)";
+    ctx.fill();
+    ctx.restore();
+
+    ctx.strokeStyle = "rgba(41, 37, 29, 0.16)";
+    ctx.lineWidth = 2;
+    roundedPath(
+      ctx,
+      -bannerWidth / 2,
+      -bannerHeight / 2,
+      bannerWidth,
+      bannerHeight,
+      [14, 10, 16, 12],
+    );
+    ctx.stroke();
+
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(`Combo ×${combo.chain}`, layout.width / 2, layout.originY + layout.cell * 0.6);
+    ctx.font = `900 ${Math.max(30, Math.min(58, layout.cell * 0.78))}px "Segoe UI", "PingFang SC", system-ui, sans-serif`;
+    ctx.lineWidth = 8;
+    ctx.strokeStyle = COLORS.surface;
+    ctx.strokeText(`COMBO ×${combo.chain}`, 0, 1);
+    ctx.fillStyle = combo.chain >= 5 ? "#b33f2c" : COLORS.field;
+    ctx.fillText(`COMBO ×${combo.chain}`, 0, 1);
     ctx.restore();
   }
 
@@ -789,8 +993,12 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
     ctx.save();
 
     if (time < shakeUntil && !reduced) {
-      const remaining = (shakeUntil - time) / 190;
-      ctx.translate(Math.sin((shakeUntil - time) / 14) * 3 * remaining, 0);
+      const remaining = Math.max(0, Math.min(1, (shakeUntil - time) / shakeDuration));
+      const phase = (shakeUntil - time) / 13;
+      ctx.translate(
+        Math.sin(phase) * shakePower * remaining,
+        Math.cos(phase * 1.37) * shakePower * 0.58 * remaining,
+      );
     }
 
     drawBoardPlate();
@@ -808,7 +1016,7 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
       drawBoardWithState(stateBoard, item, phase);
       drawParticles(time);
       drawSpecialBursts(time);
-      drawCombo();
+      drawCombo(time);
     } else {
       drawBoardWithState(board, null, 1);
       drawParticles(time);
@@ -817,6 +1025,26 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
       drawHover();
       drawDrag();
       drawCursor();
+    }
+
+    effects.drawBackdrop(ctx, time);
+    effects.draw(ctx, time);
+
+    if (time < comboFlashUntil && !reduced && combo) {
+      const remaining = Math.max(0, (comboFlashUntil - time) / 260);
+      const gradient = ctx.createRadialGradient(
+        layout.width / 2,
+        layout.height * 0.45,
+        0,
+        layout.width / 2,
+        layout.height * 0.45,
+        layout.width * 0.72,
+      );
+      gradient.addColorStop(0, `rgba(255, 238, 196, ${0.16 * remaining})`);
+      gradient.addColorStop(0.5, `rgba(255, 200, 120, ${0.08 * remaining})`);
+      gradient.addColorStop(1, "rgba(255, 200, 120, 0)");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, layout.width, layout.height);
     }
 
     if (time < flashUntil && !reduced) {
@@ -840,6 +1068,7 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
     if (time - lastFrameAt >= cadence) {
       const index = anim ? anim.index : -1;
       advanceAnimation(time);
+      effects.update(time);
       if (anim && anim.index !== index) dirty = true;
       frameTimes.push(time);
       while (frameTimes.length > 0 && time - frameTimes[0] > 1000) frameTimes.shift();
@@ -849,7 +1078,18 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
         particles: particles.length,
       };
       onStats?.(stats);
-      if (dirty || anim || particles.length > 0 || combo || time < shakeUntil) {
+      const hasSpecial = board?.tiles?.some((row) =>
+        row.some((tile) => tile?.kind === "bomb" || tile?.kind === "rainbow"),
+      );
+      if (
+        dirty ||
+        anim ||
+        particles.length > 0 ||
+        effects.count() > 0 ||
+        combo ||
+        time < shakeUntil ||
+        hasSpecial
+      ) {
         draw(time);
         dirty = false;
       }
@@ -868,6 +1108,7 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
   function destroy() {
     destroyed = true;
     running = false;
+    effects.clear();
     if (rafId) globalThis.cancelAnimationFrame?.(rafId);
     resizeObserver?.disconnect?.();
     globalThis.removeEventListener?.("resize", resize);
@@ -899,7 +1140,7 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
     setReducedMotion,
     play,
     shake,
-    stats: () => ({ fps: frameTimes.length, animating: Boolean(anim) }),
+    stats: () => ({ fps: frameTimes.length, animating: Boolean(anim), effects: effects.count() }),
     get isPlaying() {
       return Boolean(anim);
     },

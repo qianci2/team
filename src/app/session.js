@@ -322,7 +322,6 @@ export function createSession({
     const events = outcome.events ?? [];
     emit({ type: "run:changed", run: statusOf(run) });
     emit({ type: "input:lock" });
-    playAudio("clear", events.find((event) => event.type === "board:settled")?.steps?.length ?? 1);
     animationEvents(events, {
       type: "move",
       move: { from: [...intent.from], to: [...intent.to] },
@@ -423,6 +422,8 @@ export function createSession({
     }
     toast(`已提交，当前第 ${result.rank} 名`);
     emit({ type: "rank:submitted", rank: result.rank });
+    // 提交后立即重取榜单：在线榜显示新名次，离线兜底只显示自己这一条。
+    void loadRank();
     return result;
   }
 

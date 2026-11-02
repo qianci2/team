@@ -164,6 +164,16 @@ export function createUi({
       debugEl.textContent = `FPS ${stats.fps} · ${stats.animating ? "动画" : "静止"}`;
       root.body.dataset.fps = String(stats.fps);
     },
+    onCascade(step, index) {
+      try {
+        audio.play("clear", step?.chain ?? index + 1);
+        if ((step?.iceBroken?.length ?? 0) + (step?.iceReduced?.length ?? 0) > 0) {
+          audio.play("ice");
+        }
+      } catch {
+        // 音频不可用时由 M5 统一提示。
+      }
+    },
   });
 
   const input = createBoardInput({
@@ -498,7 +508,7 @@ export function createUi({
         source.textContent = "在线榜单";
         source.classList.add("source-remote");
       } else if (rank.source === "local") {
-        source.textContent = "本地模拟数据 · 离线降级";
+        source.textContent = "本机记录 · 离线";
         source.classList.add("source-local");
       } else {
         source.textContent = "尚未载入";
@@ -515,7 +525,7 @@ export function createUi({
     if (message) {
       const text =
         rank.source === "local"
-          ? messages.offline ?? "网络不可用，排行榜暂不可用，单机游玩不受影响"
+          ? "当前没有在线榜单；提交一次成绩后，这里只显示你自己的本机记录。"
           : rank.message || "";
       message.textContent = text;
       message.hidden = !text;
@@ -540,7 +550,9 @@ export function createUi({
       if (entries.length === 0) {
         const empty = document.createElement("li");
         empty.className = "rank-empty";
-        empty.textContent = rank.loading ? "正在载入榜单…" : "还没有榜单数据，点击“刷新”重试。";
+        empty.textContent = rank.loading
+          ? "正在载入榜单…"
+          : "榜单还没有记录。点击“提交我的成绩”后，这里会显示你的名次。";
         list.append(empty);
       } else {
         for (const entry of entries) {
