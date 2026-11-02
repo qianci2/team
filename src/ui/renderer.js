@@ -138,6 +138,92 @@ function drawSymbol(ctx, symbol, cx, cy, size, color, alpha) {
   ctx.restore();
 }
 
+/** 炸弹：不是浅色线稿，而是“白热核心 + 旋转金色日珥”。 */
+function drawBombGlyph(c, size, time) {
+  const pulse = 0.5 + 0.5 * Math.sin(time / 230);
+  const core = size * (0.2 + pulse * 0.035);
+  c.save();
+  c.globalCompositeOperation = "lighter";
+
+  const glow = c.createRadialGradient(0, 0, 0, 0, 0, size * 0.62);
+  glow.addColorStop(0, "rgba(255, 252, 235, .95)");
+  glow.addColorStop(0.18, "rgba(255, 210, 126, .9)");
+  glow.addColorStop(0.5, "rgba(235, 126, 45, .3)");
+  glow.addColorStop(1, "rgba(235, 126, 45, 0)");
+  c.fillStyle = glow;
+  c.beginPath();
+  c.arc(0, 0, size * 0.62, 0, Math.PI * 2);
+  c.fill();
+
+  c.save();
+  c.rotate(time / 1250);
+  c.shadowColor = "rgba(255, 166, 64, .85)";
+  c.shadowBlur = size * 0.16;
+  for (let i = 0; i < 8; i += 1) {
+    const angle = (i * Math.PI) / 4;
+    const long = size * (0.44 + 0.045 * Math.sin(time / 280 + i * 1.7));
+    const short = size * 0.12;
+    const width = size * 0.055;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    c.beginPath();
+    c.moveTo(cos * short, sin * short);
+    c.lineTo(cos * long - sin * width, sin * long + cos * width);
+    c.lineTo(cos * long + sin * width, sin * long - cos * width);
+    c.closePath();
+    c.fillStyle = "rgba(255, 228, 164, .98)";
+    c.fill();
+  }
+  c.restore();
+
+  c.beginPath();
+  c.arc(0, 0, core, 0, Math.PI * 2);
+  c.fillStyle = "#fffdf2";
+  c.fill();
+  c.strokeStyle = "rgba(255, 191, 96, .85)";
+  c.lineWidth = Math.max(1, size * 0.035);
+  c.stroke();
+  c.restore();
+}
+
+/** 彩虹：暗底上的棱镜核，五色光点带独立光晕。 */
+function drawRainbowGlyph(c, size, time) {
+  c.save();
+  c.globalCompositeOperation = "lighter";
+  const ring = size * 0.34;
+  TILE_STYLES.forEach((style, index) => {
+    const angle = -Math.PI / 2 + (index * Math.PI * 2) / TILE_STYLES.length + time / 2200;
+    const x = Math.cos(angle) * ring;
+    const y = Math.sin(angle) * ring;
+    const glow = c.createRadialGradient(x, y, 0, x, y, size * 0.22);
+    glow.addColorStop(0, style.color);
+    glow.addColorStop(0.4, style.color);
+    glow.addColorStop(1, "rgba(0,0,0,0)");
+    c.fillStyle = glow;
+    c.beginPath();
+    c.arc(x, y, size * 0.22, 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = "rgba(255,255,245,.9)";
+    c.beginPath();
+    c.arc(x, y, size * 0.035, 0, Math.PI * 2);
+    c.fill();
+  });
+  const core = c.createRadialGradient(0, 0, 0, 0, 0, size * 0.2);
+  core.addColorStop(0, "rgba(255,255,255,.95)");
+  core.addColorStop(0.35, "rgba(255,235,250,.7)");
+  core.addColorStop(1, "rgba(255,235,250,0)");
+  c.fillStyle = core;
+  c.beginPath();
+  c.arc(0, 0, size * 0.2, 0, Math.PI * 2);
+  c.fill();
+  c.strokeStyle = "rgba(255,245,255,.45)";
+  c.lineWidth = Math.max(1, size * 0.018);
+  c.beginPath();
+  c.arc(0, 0, size * 0.26, 0, Math.PI * 2);
+  c.stroke();
+  c.restore();
+}
+
 export function createRenderer(canvas, { reducedMotion = false, onStats = null } = {}) {
   if (!canvas || typeof canvas.getContext !== "function") {
     throw new TypeError("createRenderer 需要 canvas");
@@ -602,6 +688,19 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
       const pulse = 0.5 + 0.5 * Math.sin(clockMs / 170 + seed);
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = alpha * 0.7;
+      const aura = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 0.72);
+      aura.addColorStop(0, tile.kind === "rainbow" ? "rgba(214, 150, 235, .38)" : "rgba(255, 170, 72, .42)");
+      aura.addColorStop(0.45, tile.kind === "rainbow" ? "rgba(180, 110, 220, .15)" : "rgba(235, 120, 40, .16)");
+      aura.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = aura;
+      ctx.beginPath();
+      ctx.arc(0, 0, size * 0.72, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
       ctx.globalAlpha = alpha * (0.28 + pulse * 0.3);
       ctx.strokeStyle = tile.kind === "rainbow" ? "#e4b5ef" : "#ffc37a";
       ctx.lineWidth = Math.max(2, size * 0.06);
@@ -633,9 +732,15 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
     ctx.lineWidth = Math.max(1, size * 0.05);
     ctx.stroke();
 
-    const glyphColor = colorblind ? COLORS.surface : "rgba(245, 237, 223, 0.75)";
-    const glyphAlpha = colorblind ? 0.96 : 0.3;
-    drawSymbol(ctx, style.symbol, 0, 0, size, glyphColor, glyphAlpha);
+    if (tile.kind === "bomb") {
+      drawBombGlyph(ctx, size, clockMs);
+    } else if (tile.kind === "rainbow") {
+      drawRainbowGlyph(ctx, size, clockMs);
+    } else {
+      const glyphColor = colorblind ? COLORS.surface : "rgba(245, 237, 223, 0.75)";
+      const glyphAlpha = colorblind ? 0.96 : 0.3;
+      drawSymbol(ctx, style.symbol, 0, 0, size, glyphColor, glyphAlpha);
+    }
 
     ctx.restore();
   }
