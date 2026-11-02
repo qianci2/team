@@ -424,7 +424,7 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
     spawnParticles(plan.items[0]);
     spawnSpecialBurst(plan.items[0]);
     if (plan.items[0].step.chain >= 2) {
-      combo = { chain: plan.items[0].step.chain, until: now() + timing.stepMs };
+      showCombo(plan.items[0].step.chain, timing.stepMs);
     }
     return new Promise((resolve) => {
       animResolve = resolve;
@@ -453,7 +453,7 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
       spawnParticles(nextItem);
       spawnSpecialBurst(nextItem);
       if (nextItem.step.chain >= 2) {
-        combo = { chain: nextItem.step.chain, until: now() + anim.stepMs };
+        showCombo(nextItem.step.chain, anim.stepMs);
       }
       dirty = true;
     }
@@ -749,15 +749,68 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
     ctx.stroke();
   }
 
-  function drawCombo() {
-    if (!combo) return;
+  function showCombo(chain, duration) {
+    const at = now();
+    combo = { chain, bornAt: at, until: at + Math.max(260, duration) };
+    shakeUntil = Math.max(shakeUntil, at + 280);
+  }
+
+  function drawCombo(time) {
+    if (!combo || time > combo.until) return;
+    const age = Math.max(0, time - combo.bornAt);
+    const span = Math.max(1, combo.until - combo.bornAt);
+    const t = Math.min(1, age / span);
+    const intro = Math.min(1, age / 170);
+    const settle = easeOutCubic(intro);
+    const pop = 0.72 + settle * 0.28 + Math.sin(intro * Math.PI) * 0.12;
+    const fade = t > 0.72 ? Math.max(0, 1 - (t - 0.72) / 0.28) : 1;
+    const shakeX = Math.sin(age * 0.09) * (1 - settle) * 10;
+    const shakeY = Math.cos(age * 0.13) * (1 - settle) * 5;
+    const bannerWidth = Math.min(layout.width * 0.86, 420);
+    const bannerHeight = Math.max(48, layout.cell * 0.92);
+
     ctx.save();
-    ctx.globalAlpha = 0.92;
-    ctx.fillStyle = COLORS.field;
-    ctx.font = `600 ${Math.max(18, layout.cell * 0.46)}px Georgia, "Songti SC", serif`;
+    ctx.globalAlpha = fade;
+    ctx.translate(layout.width / 2 + shakeX, layout.originY + layout.cell * 1.38 + shakeY);
+    ctx.rotate(-0.075 + Math.sin(age * 0.02) * 0.012);
+    ctx.scale(pop, pop);
+
+    ctx.save();
+    ctx.shadowColor = "rgba(41, 37, 29, 0.22)";
+    ctx.shadowBlur = 18;
+    ctx.shadowOffsetY = 6;
+    roundedPath(
+      ctx,
+      -bannerWidth / 2,
+      -bannerHeight / 2,
+      bannerWidth,
+      bannerHeight,
+      [14, 10, 16, 12],
+    );
+    ctx.fillStyle = "rgba(255, 250, 240, 0.94)";
+    ctx.fill();
+    ctx.restore();
+
+    ctx.strokeStyle = "rgba(41, 37, 29, 0.16)";
+    ctx.lineWidth = 2;
+    roundedPath(
+      ctx,
+      -bannerWidth / 2,
+      -bannerHeight / 2,
+      bannerWidth,
+      bannerHeight,
+      [14, 10, 16, 12],
+    );
+    ctx.stroke();
+
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(`Combo ×${combo.chain}`, layout.width / 2, layout.originY + layout.cell * 0.6);
+    ctx.font = `900 ${Math.max(30, Math.min(58, layout.cell * 0.78))}px "Segoe UI", "PingFang SC", system-ui, sans-serif`;
+    ctx.lineWidth = 8;
+    ctx.strokeStyle = COLORS.surface;
+    ctx.strokeText(`COMBO ×${combo.chain}`, 0, 1);
+    ctx.fillStyle = combo.chain >= 5 ? "#b33f2c" : COLORS.field;
+    ctx.fillText(`COMBO ×${combo.chain}`, 0, 1);
     ctx.restore();
   }
 
@@ -839,7 +892,7 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
       drawBoardWithState(stateBoard, item, phase);
       drawParticles(time);
       drawSpecialBursts(time);
-      drawCombo();
+      drawCombo(time);
     } else {
       drawBoardWithState(board, null, 1);
       drawParticles(time);

@@ -1,7 +1,7 @@
 /**
  * M9 排行榜客户端（I-33~I-35、FL-05）。
  *
- * 远端优先、失败降级为本地模拟榜单。`submit`/`fetch` 永不 reject：
+ * 远端优先、失败降级为本地兜底空榜。`submit`/`fetch` 永不 reject：
  * 网络、超时、业务错误码都转为结构化结果，调用方（M5）不需要 try/catch。
  */
 
@@ -31,37 +31,20 @@ function nowOf(clock) {
   return Number.isFinite(value) ? value : Date.now();
 }
 
-function localEntryName(index) {
-  return `星友${String(index + 1).padStart(3, "0")}`;
-}
-
 /**
- * 确定性本地模拟榜单（I-35）。
+ * 本地兜底榜（I-35）。
  *
- * 100 条，分数降序；若玩家已设置合法昵称，则把玩家按 totalScore 插入。
- * 数据只用于降级展示，界面必须标注“本地模拟数据”。
+ * 默认空榜；只有玩家本次会话成功提交过成绩，才显示自己这一条。
+ * 不再生成虚构玩家，避免“打开排行榜就有一百个人”的假数据。
+ * `save` 保留在签名里，供后续把“已提交”状态持久化时使用。
  */
-export function localBoard(save = {}, rng = createRng(20261026)) {
-  const list = [];
-  let score = 138000;
-  for (let i = 0; i < RANK_LIMIT; i += 1) {
-    score -= 900 + Math.floor(rng() * 700);
-    list.push({
-      nickname: localEntryName(i),
-      totalScore: Math.max(0, score),
-      avatar: null,
-      self: false,
-    });
-  }
-
-  const nickname = save?.nickname;
-  const playerScore = Number.isInteger(save?.totalScore) ? Math.max(0, save.totalScore) : null;
-  if (isValidNickname(nickname) && nickname !== "" && playerScore !== null) {
-    list.push({ nickname, totalScore: playerScore, avatar: null, self: true });
-  }
-
-  list.sort((a, b) => b.totalScore - a.totalScore || a.nickname.localeCompare(b.nickname));
-  return list.slice(0, RANK_LIMIT).map((entry, index) => ({ ...entry, rank: index + 1 }));
+export function localBoard(save = {}, rng = createRng(20261026), submitted = null) {
+  void save;
+  void rng;
+  const nickname = submitted?.nickname;
+  const totalScore = submitted?.totalScore;
+  if (!validateNickname(nickname) || !validateScore(totalScore)) return [];
+  return [{ rank: 1, nickname, totalScore, avatar: null, self: true }];
 }
 
 function normalizeRemoteList(payload) {
@@ -108,6 +91,7 @@ export function createRankClient({
   let submitting = null;
   let lastFetchAt = -Infinity;
   let lastFetch = null;
+  let submittedEntry = null;
 
   async function requestJson(path, init) {
     if (typeof fetchImpl !== "function") {
@@ -159,6 +143,9 @@ export function createRankClient({
       }
       const payload = result.payload;
       if (payload?.code === 0 && Number.isInteger(payload.rank)) {
+        submittedEntry = { nickname, totalScore };
+        lastFetch = null;
+        lastFetchAt = -Infinity;
         onStatus("ok", payload);
         return { ok: true, code: 0, rank: payload.rank };
       }
@@ -205,7 +192,7 @@ export function createRankClient({
     const fallback = {
       ok: false,
       source: "local",
-      list: localBoard(saveProvider(), rng),
+      list: localBoard(saveProvider(), rng, submittedEntry),
       code: result.code ?? "error",
       message: result.message ?? SERVER_MESSAGE,
     };
@@ -218,7 +205,7 @@ export function createRankClient({
   return {
     submit,
     fetch: fetchBoard,
-    localBoard: (save = saveProvider()) => localBoard(save, rng),
+    localBoard: (save = saveProvider()) => localBoard(save, rng, submittedEntry),
     isSubmitting: () => Boolean(submitting),
   };
 }
