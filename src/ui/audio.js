@@ -225,16 +225,17 @@ export function createAudioEngine({ logger = null } = {}) {
   }
 
   // 4. 风铃：E6-G6-A6-C7-D7，声像 -0.7 → +0.7
-  function windChime(at) {
+  function windChime(at, { pitch = 0, panOffset = 0, gain = 0.12 } = {}) {
+    const ratio = 2 ** (pitch / 12);
     [E6, G6, A6, C7, D7].forEach((freq, index) => {
       tone({
-        freq,
+        freq: freq * ratio,
         type: "sine",
         dur: 0.85,
-        gain: 0.12,
+        gain,
         attack: 0.003,
         at: at + index * 0.07,
-        pan: -0.7 + (index / 4) * 1.4,
+        pan: -0.7 + (index / 4) * 1.4 + panOffset,
       });
     });
   }
@@ -349,9 +350,31 @@ export function createAudioEngine({ logger = null } = {}) {
         bassImpact(at);
         break;
       case "clear":
-      default:
-        windChime(at);
+      default: {
+        // 每一段连锁都有自己的风铃：音高上行、声像交替，间隔 140ms 制造紧迫感。
+        const count = clampChain(chain);
+        for (let i = 0; i < count; i += 1) {
+          const stepAt = at + i * 0.14;
+          windChime(stepAt, {
+            pitch: i * 2,
+            panOffset: i % 2 === 0 ? -0.12 : 0.12,
+            gain: i === 0 ? 0.12 : 0.1,
+          });
+          if (i > 0) {
+            noise({
+              dur: 0.035,
+              gain: 0.055,
+              filter: "bandpass",
+              freq: 3000,
+              q: 1.4,
+              at: stepAt,
+              pan: i % 2 === 0 ? -0.25 : 0.25,
+            });
+          }
+        }
+        if (count >= 3) chord(at + (count - 1) * 0.14 + 0.02);
         break;
+      }
     }
   }
 
