@@ -26,7 +26,7 @@
 | FR-17 总积分 | M | `save-schema.js` `sumBestScores`、`economy.js`、UI-6 | `economy/save.test` | 已实现 |
 | FR-18 排行榜 | M | `rank.js`、`scripts/mock-rank-server.mjs`、UI-5 | `rank.test`、`session.test`、浏览器降级展示 | 部分（真实服务未部署，mock 仅契约） |
 | FR-19 昵称白名单 | M | `save-schema.js`、`rank.js`、`mock-rank-server.mjs`、UI-6 表单 | `save/rank.test`、浏览器验收 | 已实现 |
-| FR-20 排行榜降级 | M | `rank.js` 超时/本地榜单、`session.js` 状态、UI 明确标注“本地模拟数据” | `rank/session.test`、浏览器验收 | 已实现 |
+| FR-20 排行榜降级 | M | `rank.js` 超时/本地榜单、`session.js` 状态、UI 空榜 + 提交后本机记录 | `rank/session.test`、浏览器验收 | 已实现 |
 | FR-21 名次一致性 | M | mock 自增序号/10s 节流、UI 名次 | `rank.test` | 部分（真实服务/多轮查询未实测） |
 | FR-22 道具 | M | `run.js` `useItem`、`session.js` 库存/限用、UI 道具栏与锤子瞄准 | `run/session.test`、浏览器验收 | 已实现 |
 | FR-23 金币/购买 | M | `economy.js` `settleCoins`/`buyItem`、UI-7 小铺 | `economy/session.test`、浏览器验收价格/禁用 | 已实现 |

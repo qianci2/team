@@ -423,6 +423,8 @@ export function createSession({
     }
     toast(`已提交，当前第 ${result.rank} 名`);
     emit({ type: "rank:submitted", rank: result.rank });
+    // 提交后立即重取榜单：在线榜显示新名次，离线兜底只显示自己这一条。
+    void loadRank();
     return result;
   }
 

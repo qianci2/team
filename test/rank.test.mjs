@@ -29,17 +29,15 @@ test("昵称与分数客户端校验", () => {
   assert.equal(validateScore("100"), false);
 });
 
-test("I-35：本地模拟榜单 100 条、确定性、玩家按分数插入", () => {
+test("I-35：本地兜底榜初始为空，只显示本次成功提交", () => {
   const save = { nickname: "星消乐玩家", totalScore: 90000 };
-  const first = localBoard(save, RNG0);
-  const second = localBoard(save, RNG0);
-  assert.equal(first.length, 100);
-  assert.deepEqual(first, second);
-  assert.equal(first.some((entry) => entry.nickname === "星消乐玩家" && entry.self), true);
-  for (let i = 1; i < first.length; i += 1) {
-    assert.ok(first[i - 1].totalScore >= first[i].totalScore);
-    assert.equal(first[i].rank, i + 1);
-  }
+  assert.deepEqual(localBoard(save, RNG0), []);
+  assert.deepEqual(localBoard(save, RNG0, { nickname: "ab", totalScore: 90000 }), []);
+
+  const submitted = localBoard(save, RNG0, { nickname: "星消乐玩家", totalScore: 90000 });
+  assert.deepEqual(submitted, [
+    { rank: 1, nickname: "星消乐玩家", totalScore: 90000, avatar: null, self: true },
+  ]);
 });
 
 test("I-33：昵称/分数非法时本地拒绝，不发起请求", async () => {
@@ -98,7 +96,25 @@ test("FM-03：超时/网络失败降级为 offline，永不 reject", async () =>
 
   const board = await rank.fetch(10);
   assert.equal(board.source, "local");
-  assert.equal(board.list.length, 100);
+  assert.deepEqual(board.list, []);
+});
+
+test("I-35：提交成功后本地兜底只显示自己的成绩", async () => {
+  const rank = createRankClient({
+    fetchImpl: async (url, init) => {
+      if (init?.method === "POST") return response({ code: 0, rank: 1 });
+      return response({ code: 5000 }, { ok: false, status: 503 });
+    },
+    clock: { now: () => T0 },
+    saveProvider: () => ({ nickname: "星消乐玩家", totalScore: 90000 }),
+  });
+  const submitted = await rank.submit({ nickname: "星消乐玩家", totalScore: 90000 });
+  assert.equal(submitted.ok, true);
+  const board = await rank.fetch(100, { force: true });
+  assert.equal(board.source, "local");
+  assert.deepEqual(board.list, [
+    { rank: 1, nickname: "星消乐玩家", totalScore: 90000, avatar: null, self: true },
+  ]);
 });
 
 test("FM-04：服务端 5xx 与 5000 不阻塞单机，查询降级本地", async () => {
