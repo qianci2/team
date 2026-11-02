@@ -131,7 +131,7 @@ P5 对 P6 的唯一扩展：`play` 的第二个参数 `meta`（只读）。M1/M3
 ### 10.1 自动化测试
 
 ```bash
-npm run check   # 96 个必需文件、3 组基线标记
+npm run check   # 90 个必需文件、3 组基线标记
 npm test        # 156 个用例通过
 ```
 
