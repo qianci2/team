@@ -1042,7 +1042,18 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
         particles: particles.length,
       };
       onStats?.(stats);
-      if (dirty || anim || particles.length > 0 || effects.count() > 0 || combo || time < shakeUntil) {
+      const hasSpecial = board?.tiles?.some((row) =>
+        row.some((tile) => tile?.kind === "bomb" || tile?.kind === "rainbow"),
+      );
+      if (
+        dirty ||
+        anim ||
+        particles.length > 0 ||
+        effects.count() > 0 ||
+        combo ||
+        time < shakeUntil ||
+        hasSpecial
+      ) {
         draw(time);
         dirty = false;
       }
