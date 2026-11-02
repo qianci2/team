@@ -2,6 +2,25 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.1.0] - 2026-11-02
+
+### Added
+
+- 对局分层特效：星爆、霜裂、引力，按 `CascadeStep` 触发；炸弹/彩虹特殊元素重绘并常态旋转。
+- Combo 大号倾斜横幅，缩放 + 随连锁增强的全屏棋盘震动与暖色闪光。
+- Web Audio 合成音效：琶音、拍击、和弦、风铃、低音冲击、玻璃碎响、钟琴；每段连锁单独触发，全部经过 Compressor。
+- 排行榜初始空榜，仅成功提交后显示本机记录；提交后自动刷新。
+
+### Changed
+
+- 消除音效从“一次移动一次”改为“每段动画一次”，音高随连锁上行。
+- v1.0.1 的导航、HUD、冰层、文案与配色修订包含在本版本中。
+
+### Validation
+
+- `npm run check`：91 个必需文件、3 组基线标记。
+- `npm test`：156 个通过，0 失败。
+
 ## [1.0.1] - 2026-11-01
 
 ### Changed
@@ -65,6 +84,7 @@
 - 需求 v2.1 与设计 v1.0 基线文档，以及 K-01~K-04 修正记录。
 - 仓库校验脚本与 Node 单元测试；GitHub Actions CI。
 
+[1.1.0]: https://github.com/qianci2/team/releases/tag/v1.1.0
 [1.0.1]: https://github.com/qianci2/team/releases/tag/v1.0.1
 [1.0.0]: https://github.com/qianci2/team/releases/tag/v1.0.0
 [0.1.0]: https://github.com/qianci2/team/releases/tag/v0.1.0
