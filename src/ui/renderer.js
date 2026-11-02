@@ -254,6 +254,9 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
   let bursts = [];
   let combo = null;
   let shakeUntil = 0;
+  let shakePower = 3;
+  let shakeDuration = 190;
+  let comboFlashUntil = 0;
   let flashUntil = 0;
   let clockMs = 0;
   let reduced = Boolean(reducedMotion);
@@ -352,9 +355,13 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
     effects.setReducedMotion(reduced);
   }
 
-  function shake() {
+  function shake(power = 3, duration = 190) {
     if (reduced) return;
-    shakeUntil = now() + 190;
+    const at = now();
+    const active = at < shakeUntil;
+    shakePower = active ? Math.max(shakePower, power) : power;
+    shakeDuration = active ? Math.max(shakeDuration, duration) : duration;
+    shakeUntil = Math.max(shakeUntil, at + duration);
     dirty = true;
   }
 
@@ -857,7 +864,10 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
   function showCombo(chain, duration) {
     const at = now();
     combo = { chain, bornAt: at, until: at + Math.max(260, duration) };
-    shakeUntil = Math.max(shakeUntil, at + 280);
+    const power = Math.min(16, 2.5 + chain * 2.4);
+    const shakeFor = Math.min(620, 240 + chain * 55);
+    shake(power, shakeFor);
+    comboFlashUntil = Math.max(comboFlashUntil, at + 140 + chain * 28);
   }
 
   function drawCombo(time) {
@@ -978,8 +988,12 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
     ctx.save();
 
     if (time < shakeUntil && !reduced) {
-      const remaining = (shakeUntil - time) / 190;
-      ctx.translate(Math.sin((shakeUntil - time) / 14) * 3 * remaining, 0);
+      const remaining = Math.max(0, Math.min(1, (shakeUntil - time) / shakeDuration));
+      const phase = (shakeUntil - time) / 13;
+      ctx.translate(
+        Math.sin(phase) * shakePower * remaining,
+        Math.cos(phase * 1.37) * shakePower * 0.58 * remaining,
+      );
     }
 
     drawBoardPlate();
@@ -1010,6 +1024,23 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
 
     effects.drawBackdrop(ctx, time);
     effects.draw(ctx, time);
+
+    if (time < comboFlashUntil && !reduced && combo) {
+      const remaining = Math.max(0, (comboFlashUntil - time) / 260);
+      const gradient = ctx.createRadialGradient(
+        layout.width / 2,
+        layout.height * 0.45,
+        0,
+        layout.width / 2,
+        layout.height * 0.45,
+        layout.width * 0.72,
+      );
+      gradient.addColorStop(0, `rgba(255, 238, 196, ${0.16 * remaining})`);
+      gradient.addColorStop(0.5, `rgba(255, 200, 120, ${0.08 * remaining})`);
+      gradient.addColorStop(1, "rgba(255, 200, 120, 0)");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, layout.width, layout.height);
+    }
 
     if (time < flashUntil && !reduced) {
       const opacity = Math.max(0, (flashUntil - time) / 180) * 0.22;
