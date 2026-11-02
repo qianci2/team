@@ -164,6 +164,16 @@ export function createUi({
       debugEl.textContent = `FPS ${stats.fps} · ${stats.animating ? "动画" : "静止"}`;
       root.body.dataset.fps = String(stats.fps);
     },
+    onCascade(step, index) {
+      try {
+        audio.play("clear", step?.chain ?? index + 1);
+        if ((step?.iceBroken?.length ?? 0) + (step?.iceReduced?.length ?? 0) > 0) {
+          audio.play("ice");
+        }
+      } catch {
+        // 音频不可用时由 M5 统一提示。
+      }
+    },
   });
 
   const input = createBoardInput({

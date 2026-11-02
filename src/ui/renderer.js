@@ -224,7 +224,10 @@ function drawRainbowGlyph(c, size, time) {
   c.restore();
 }
 
-export function createRenderer(canvas, { reducedMotion = false, onStats = null } = {}) {
+export function createRenderer(
+  canvas,
+  { reducedMotion = false, onStats = null, onCascade = null } = {},
+) {
   if (!canvas || typeof canvas.getContext !== "function") {
     throw new TypeError("createRenderer 需要 canvas");
   }
@@ -516,6 +519,7 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
     combo = null;
     spawnParticles(plan.items[0]);
     spawnSpecialBurst(plan.items[0]);
+    onCascade?.(plan.items[0].step, 0);
     if (plan.items[0].step.chain >= 2) {
       showCombo(plan.items[0].step.chain, timing.stepMs);
     }
@@ -545,6 +549,7 @@ export function createRenderer(canvas, { reducedMotion = false, onStats = null }
       const nextItem = anim.items[anim.index];
       spawnParticles(nextItem);
       spawnSpecialBurst(nextItem);
+      onCascade?.(nextItem.step, anim.index);
       if (nextItem.step.chain >= 2) {
         showCombo(nextItem.step.chain, anim.stepMs);
       }

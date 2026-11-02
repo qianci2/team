@@ -351,28 +351,25 @@ export function createAudioEngine({ logger = null } = {}) {
         break;
       case "clear":
       default: {
-        // 每一段连锁都有自己的风铃：音高上行、声像交替，间隔 140ms 制造紧迫感。
-        const count = clampChain(chain);
-        for (let i = 0; i < count; i += 1) {
-          const stepAt = at + i * 0.14;
-          windChime(stepAt, {
-            pitch: i * 2,
-            panOffset: i % 2 === 0 ? -0.12 : 0.12,
-            gain: i === 0 ? 0.12 : 0.1,
+        // renderer 每播到一段连锁就调用一次：一段风铃一个音高，越连越高。
+        const level = clampChain(chain);
+        windChime(at, {
+          pitch: (level - 1) * 2,
+          panOffset: level % 2 === 0 ? 0.12 : -0.12,
+          gain: level === 1 ? 0.12 : 0.1,
+        });
+        if (level > 1) {
+          noise({
+            dur: 0.035,
+            gain: 0.055,
+            filter: "bandpass",
+            freq: 3000,
+            q: 1.4,
+            at,
+            pan: level % 2 === 0 ? 0.25 : -0.25,
           });
-          if (i > 0) {
-            noise({
-              dur: 0.035,
-              gain: 0.055,
-              filter: "bandpass",
-              freq: 3000,
-              q: 1.4,
-              at: stepAt,
-              pan: i % 2 === 0 ? -0.25 : 0.25,
-            });
-          }
         }
-        if (count >= 3) chord(at + (count - 1) * 0.14 + 0.02);
+        if (level >= 3) chord(at + 0.02);
         break;
       }
     }

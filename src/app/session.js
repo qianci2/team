@@ -322,11 +322,6 @@ export function createSession({
     const events = outcome.events ?? [];
     emit({ type: "run:changed", run: statusOf(run) });
     emit({ type: "input:lock" });
-    const steps = events.find((event) => event.type === "board:settled")?.steps ?? [];
-    playAudio("clear", steps.length || 1);
-    if (steps.some((step) => (step.iceBroken?.length ?? 0) + (step.iceReduced?.length ?? 0) > 0)) {
-      playAudio("ice");
-    }
     animationEvents(events, {
       type: "move",
       move: { from: [...intent.from], to: [...intent.to] },
